@@ -1,0 +1,22 @@
+# Build outputs
+build/
+sdkconfig
+sdkconfig.old
+
+# ESP-IDF managed components (downloaded by idf.py)
+managed_components/
+dependencies.lock
+
+# Python
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.claude/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db

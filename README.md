@@ -8,7 +8,7 @@ The project is split into three independent firmware projects and a shared libra
 |-----------|-------------|--------------|
 | `block/`  | Block Agent — programs blocks onto EEPROMs via I2C | `block` |
 | `board/`  | Board Reader — reads EEPROM blocks, sends program to robot via ESP-NOW | `board` |
-| `robo/`   | Robot Controller — receives program via ESP-NOW, drives 2 DC motors | `robo` |
+| `robo/`   | Robot Controller — receives program via ESP-NOW, drives motors, animated LCD eyes | `robo` |
 | `common/` | Shared ESP-IDF component (block types, EEPROM driver, ESP-NOW protocol) | library |
 
 ## Hardware
@@ -19,6 +19,7 @@ The project is split into three independent firmware projects and a shared libra
 - **Status LED:** WS2812 RGB on GPIO 48 (block agent)
 - **I2C Bus:** SDA=GPIO 8, SCL=GPIO 9, 100 kHz
 - **Robot Motors:** 2x DC motors (L/R differential drive), H-bridge on GPIOs 4/5/6/7 + PWM on 15/16
+- **Robot Display:** GC9A01 1.28" round LCD (240x240, SPI, RGB565) — animated Cozmo-style eyes
 - **Send Button:** GPIO 0 (BOOT) on the board — press to send program to robot
 
 ## Prerequisites
@@ -140,7 +141,9 @@ Bloco/
 │   ├── main/
 │   │   ├── main.c              ESP-NOW receiver + task orchestration
 │   │   ├── motor.c/h           2-motor differential drive (LEDC PWM)
-│   │   └── executor.c/h        Block program interpreter
+│   │   ├── executor.c/h        Block program interpreter
+│   │   ├── display.c/h         GC9A01 SPI LCD driver (init, flush, backlight)
+│   │   └── eyes.c/h            Cozmo-style animated eye renderer (30fps)
 │   └── tools/
 │       └── robo_sim.py         GUI for flashing and monitoring robot
 │
@@ -187,6 +190,41 @@ The board sends programs to the robot over ESP-NOW (channel 1, broadcast mode). 
 3. **PROGRAM_END** (1 byte): `{msg_type=0x03}`
 
 The robot auto-executes the program immediately upon receiving PROGRAM_END.
+
+## Robot Display (Animated Eyes)
+
+The robot has a 1.28" GC9A01 round LCD that displays Cozmo-style animated eyes. The eyes react to the robot's actions and provide visual feedback during program execution.
+
+### Display Wiring
+
+| Display Pin | ESP32-S3 GPIO |
+|-------------|---------------|
+| SCL (SCLK)  | 10            |
+| SDA (MOSI)  | 11            |
+| CS           | 12            |
+| DC           | 13            |
+| RST          | 14            |
+| BL           | 21 (optional) |
+| VCC          | 3.3V          |
+| GND          | GND           |
+
+### Eye Expressions
+
+The eyes change expression based on which block is executing:
+
+| Expression | Visual | Triggered by |
+|------------|--------|-------------|
+| NORMAL     | Neutral open eyes | Idle, program end |
+| HAPPY      | Squinted from below | BEEP, SING, sound blocks |
+| SURPRISED  | Wide and round, small pupils | SPIN, WAIT_FOR_CLAP |
+| EXCITED    | Slightly larger | SHAKE |
+| FOCUSED    | Narrowed, large pupils | FORWARD, BACKWARD, BEGIN |
+
+The eyes also look in the direction of movement (up for forward, down for backward, left/right for turns). Auto-blink runs every 2–6 seconds.
+
+### Rendering
+
+Uses band-buffer rendering (240x30 pixel strips, ~14KB) flushed 8 times per frame via SPI DMA at 40 MHz. All integer math — no floats. Expression transitions are smooth linear interpolation over ~250ms.
 
 ## Command Protocol
 

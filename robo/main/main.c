@@ -10,6 +10,8 @@
 #include "block_types.h"
 #include "espnow_protocol.h"
 #include "motor.h"
+#include "display.h"
+#include "eyes.h"
 #include "executor.h"
 
 static const char *TAG = "robo";
@@ -131,6 +133,10 @@ void app_main(void)
 
     // Init motors
     ESP_ERROR_CHECK(motor_init());
+
+    // Init display + eyes
+    ESP_ERROR_CHECK(display_init());
+    eyes_init();
 
     // Init WiFi + ESP-NOW receiver
     wifi_espnow_init();

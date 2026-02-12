@@ -1,5 +1,6 @@
 #include "executor.h"
 #include "motor.h"
+#include "eyes.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -65,17 +66,21 @@ void executor_run(const block_data_t *blocks, uint8_t count)
 
         switch (type) {
         case BLOCK_BEGIN:
-            // Start marker — just advance
+            eyes_set_expression(EYES_FOCUSED);
             break;
 
         case BLOCK_END:
             ESP_LOGI(TAG, "=== Program END ===");
             motor_stop();
+            eyes_set_expression(EYES_NORMAL);
+            eyes_set_look_direction(EYES_CENTER);
             return;
 
         case BLOCK_FORWARD: {
             int reps = get_param_value(blocks, count, &pc);
             ESP_LOGI(TAG, "  Forward x%d", reps);
+            eyes_set_expression(EYES_FOCUSED);
+            eyes_set_look_direction(EYES_UP);
             do_move(motor_forward, reps);
             break;
         }
@@ -83,6 +88,8 @@ void executor_run(const block_data_t *blocks, uint8_t count)
         case BLOCK_BACKWARD: {
             int reps = get_param_value(blocks, count, &pc);
             ESP_LOGI(TAG, "  Backward x%d", reps);
+            eyes_set_expression(EYES_FOCUSED);
+            eyes_set_look_direction(EYES_DOWN);
             do_move(motor_backward, reps);
             break;
         }
@@ -90,6 +97,7 @@ void executor_run(const block_data_t *blocks, uint8_t count)
         case BLOCK_TURN_RIGHT: {
             int reps = get_param_value(blocks, count, &pc);
             ESP_LOGI(TAG, "  Turn right x%d", reps);
+            eyes_set_look_direction(EYES_RIGHT);
             do_move(motor_turn_right, reps);
             break;
         }
@@ -97,12 +105,14 @@ void executor_run(const block_data_t *blocks, uint8_t count)
         case BLOCK_TURN_LEFT: {
             int reps = get_param_value(blocks, count, &pc);
             ESP_LOGI(TAG, "  Turn left x%d", reps);
+            eyes_set_look_direction(EYES_LEFT);
             do_move(motor_turn_left, reps);
             break;
         }
 
         case BLOCK_SHAKE: {
             ESP_LOGI(TAG, "  Shake!");
+            eyes_set_expression(EYES_EXCITED);
             for (int i = 0; i < SHAKE_CYCLES; i++) {
                 motor_turn_left(MOTOR_DEFAULT_SPEED);
                 vTaskDelay(pdMS_TO_TICKS(SHAKE_CYCLE_MS));
@@ -115,6 +125,7 @@ void executor_run(const block_data_t *blocks, uint8_t count)
 
         case BLOCK_SPIN: {
             ESP_LOGI(TAG, "  Spin!");
+            eyes_set_expression(EYES_SURPRISED);
             motor_spin(MOTOR_DEFAULT_SPEED);
             vTaskDelay(pdMS_TO_TICKS(SPIN_MS));
             motor_stop();
@@ -157,6 +168,7 @@ void executor_run(const block_data_t *blocks, uint8_t count)
 
         case BLOCK_BEEP:
             ESP_LOGI(TAG, "  Beep! (placeholder — no speaker connected)");
+            eyes_set_expression(EYES_HAPPY);
             vTaskDelay(pdMS_TO_TICKS(BEEP_MS));
             break;
 
@@ -165,6 +177,7 @@ void executor_run(const block_data_t *blocks, uint8_t count)
         case BLOCK_PLAY_CIRCLE:
         case BLOCK_PLAY_SQUARE:
             ESP_LOGI(TAG, "  Sound 0x%02X (placeholder)", type);
+            eyes_set_expression(EYES_HAPPY);
             vTaskDelay(pdMS_TO_TICKS(500));
             break;
 
@@ -176,6 +189,7 @@ void executor_run(const block_data_t *blocks, uint8_t count)
 
         case BLOCK_WAIT_FOR_CLAP:
             ESP_LOGI(TAG, "  Wait for clap (placeholder — waiting 2s)");
+            eyes_set_expression(EYES_SURPRISED);
             vTaskDelay(pdMS_TO_TICKS(2000));
             break;
 
@@ -200,5 +214,7 @@ void executor_run(const block_data_t *blocks, uint8_t count)
     }
 
     motor_stop();
+    eyes_set_expression(EYES_NORMAL);
+    eyes_set_look_direction(EYES_CENTER);
     ESP_LOGI(TAG, "=== Program finished ===");
 }

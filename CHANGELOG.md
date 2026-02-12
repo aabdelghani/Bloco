@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-02-12
+
+### Added
+- **GC9A01 round LCD display** — 1.28" 240x240 RGB565 display on the robot, driven over SPI at 40 MHz with DMA.
+- **Cozmo-style animated eyes** (`robo/main/eyes.c/h`) — 8 expression presets (NORMAL, HAPPY, SAD, ANGRY, SURPRISED, SLEEPING, EXCITED, FOCUSED) with smooth 250ms transitions, auto-blink every 2–6 seconds, and directional pupil tracking.
+- **Display driver** (`robo/main/display.c/h`) — Low-level GC9A01 SPI driver with band-buffer rendering (240x30 strips, ~14KB RAM), LEDC backlight PWM on TIMER_1/CH2 (avoids motor conflict).
+- `robo/main/idf_component.yml` — Declares `espressif/esp_lcd_gc9a01 ^2.0.0` dependency.
+
+### Changed
+- `robo/main/executor.c` — Block execution now sets eye expressions and look direction (FORWARD→focused+up, turns→look L/R, SHAKE→excited, sounds→happy, etc.).
+- `robo/main/main.c` — Calls `display_init()` and `eyes_init()` on boot.
+- `robo/main/CMakeLists.txt` — Added `display.c`, `eyes.c` to SRCS; `esp_lcd`, `esp_driver_spi` to REQUIRES.
+
 ## [0.2.0] - 2026-02-12
 
 ### Added

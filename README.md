@@ -220,7 +220,7 @@ The eyes change expression based on which block is executing:
 | EXCITED    | Slightly larger | SHAKE |
 | FOCUSED    | Narrowed, large pupils | FORWARD, BACKWARD, BEGIN |
 
-The eyes also look in the direction of movement (up for forward, down for backward, left/right for turns). Auto-blink runs every 2–6 seconds.
+The eyes also look in the direction of movement (up for forward, down for backward, left/right for turns). Auto-blink runs every 2–6 seconds. After 1 minute of no program activity, the eyes transition to a SLEEPING expression and wake instantly when a new program is received (timeout configurable via `EYES_IDLE_TIMEOUT_MS` in `eyes.c`).
 
 ### Rendering
 

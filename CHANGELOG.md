@@ -7,13 +7,19 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **GC9A01 round LCD display** — 1.28" 240x240 RGB565 display on the robot, driven over SPI at 40 MHz with DMA.
 - **Cozmo-style animated eyes** (`robo/main/eyes.c/h`) — 8 expression presets (NORMAL, HAPPY, SAD, ANGRY, SURPRISED, SLEEPING, EXCITED, FOCUSED) with smooth 250ms transitions, auto-blink every 2–6 seconds, and directional pupil tracking.
+- **Idle sleep mode** — Eyes transition to SLEEPING after 1 minute of inactivity, wake instantly on new program. Timeout configurable via `EYES_IDLE_TIMEOUT_MS`.
 - **Display driver** (`robo/main/display.c/h`) — Low-level GC9A01 SPI driver with band-buffer rendering (240x30 strips, ~14KB RAM), LEDC backlight PWM on TIMER_1/CH2 (avoids motor conflict).
+- **App icons** — Custom 64x64 PNG taskbar icons for all GUI tools (PCB chip, robot face, colored blocks, rocket).
 - `robo/main/idf_component.yml` — Declares `espressif/esp_lcd_gc9a01 ^2.0.0` dependency.
 
 ### Changed
 - `robo/main/executor.c` — Block execution now sets eye expressions and look direction (FORWARD→focused+up, turns→look L/R, SHAKE→excited, sounds→happy, etc.).
 - `robo/main/main.c` — Calls `display_init()` and `eyes_init()` on boot.
 - `robo/main/CMakeLists.txt` — Added `display.c`, `eyes.c` to SRCS; `esp_lcd`, `esp_driver_spi` to REQUIRES.
+- All GUI tools now set `className` and `iconphoto` for proper Linux taskbar display.
+
+### Fixed
+- "Blocko" typo → "Bloco" in block_gui.py window title.
 
 ## [0.2.0] - 2026-02-12
 

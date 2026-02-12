@@ -57,13 +57,26 @@ idf.py build
 idf.py -p /dev/ttyACM0 flash monitor
 ```
 
+### Robot Configuration
+
+The robot supports compile-time eye style selection via `menuconfig`:
+
+```bash
+cd robo
+idf.py menuconfig   # Robot Configuration → Eyes style → Solid / With pupils
+idf.py build
+```
+
+- **Solid (default):** White shapes only — emotion conveyed through eye shape, eyelid position, and tilt. Simpler, Cozmo-like look.
+- **With pupils:** Classic cartoon eyes with black pupils. Supports look direction (left/right/up/down) via pupil movement.
+
 ### Board Reader (Debug Build)
 
-The board supports an optional serial JSON command handler for use with the board monitor GUI. To enable it, build with the debug config:
+The board supports an optional serial JSON command handler for use with the board monitor GUI and simulator. To enable it, build with the debug config:
 
 ```bash
 cd board
-idf.py -B build_debug -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.debug" build
+idf.py -B build_debug -D SDKCONFIG_DEFAULTS="sdkconfig.defaults.debug" build
 idf.py -B build_debug -p /dev/ttyACM0 flash monitor
 ```
 
@@ -76,6 +89,8 @@ All GUI tools require Python 3 and `pyserial`:
 ```bash
 pip install pyserial
 ```
+
+**Auto-detection:** Each firmware writes its device role ("board" or "robo") to NVS on first boot and prints `DEVICE_ROLE=board` or `DEVICE_ROLE=robo` at startup. The Python tools automatically scan serial ports and connect to the correct device.
 
 ### Launchpad (`tools/launchpad.py`)
 
@@ -95,7 +110,11 @@ python3 block/tools/block_gui.py
 
 ### Board Monitor (`board/tools/board_monitor.py`)
 
-Tkinter GUI for inspecting I2C block slots on the board. Requires the board to be flashed with the debug build (CONFIG_BOARD_SERIAL_CMD enabled). Scans slots, displays block data with color-coded cards, and can trigger ESP-NOW sends to the robot.
+Tkinter GUI for inspecting I2C block slots on the board. Requires the board to be flashed with the debug build (CONFIG_BOARD_SERIAL_CMD enabled). Three tabs:
+
+- **Flash** — Build and flash the board firmware
+- **I2C Blocks** — Scan slots, display block data as color-coded cards, send to robot
+- **Simulator** — Drag-and-drop block composer: click palette blocks to build a program, drag to reorder, right-click to remove, and send directly to the robot without physical EEPROM blocks
 
 ```bash
 python3 board/tools/board_monitor.py
@@ -143,7 +162,8 @@ Bloco/
 │   │   ├── motor.c/h           2-motor differential drive (LEDC PWM)
 │   │   ├── executor.c/h        Block program interpreter
 │   │   ├── display.c/h         GC9A01 SPI LCD driver (init, flush, backlight)
-│   │   └── eyes.c/h            Cozmo-style animated eye renderer (30fps)
+│   │   ├── eyes.c/h            Cozmo-style animated eye renderer (30fps)
+│   │   └── Kconfig.projbuild   Robot configuration (eye style selection)
 │   └── tools/
 │       └── robo_sim.py         GUI for flashing and monitoring robot
 │
@@ -165,6 +185,8 @@ Blocks are 32-byte data structures stored on EEPROM. Action blocks perform opera
 | Wait         | WAIT_FOR_CLAP | `0x50` |
 | Parameters   | 2, 3, 4, FOREVER, LIGHT, DARK, NEAR, FAR, UNTIL_LIGHT, UNTIL_DARK, UNTIL_NEAR, UNTIL_FAR | `0x60`–`0x6B` |
 | Sensors      | LIGHT_BULB, EAR, EYE, TELESCOPE, SOUND_MODULE | `0x70`–`0x74` |
+| Eyes         | EYES_NORMAL, EYES_HAPPY, EYES_SAD, EYES_ANGRY, EYES_SURPRISED, EYES_SLEEPING, EYES_EXCITED, EYES_FOCUSED | `0x80`–`0x87` |
+| Eyes Look    | EYES_LOOK_CENTER, EYES_LOOK_LEFT, EYES_LOOK_RIGHT, EYES_LOOK_UP, EYES_LOOK_DOWN | `0x88`–`0x8C` |
 
 ### EEPROM Data Layout (32 bytes)
 
@@ -220,7 +242,14 @@ The eyes change expression based on which block is executing:
 | EXCITED    | Slightly larger | SHAKE |
 | FOCUSED    | Narrowed, large pupils | FORWARD, BACKWARD, BEGIN |
 
+Eye expressions and look directions can also be set directly using eye block types (`0x80`–`0x8C`) in a program.
+
 The eyes also look in the direction of movement (up for forward, down for backward, left/right for turns). Auto-blink runs every 2–6 seconds. After 1 minute of no program activity, the eyes transition to a SLEEPING expression and wake instantly when a new program is received (timeout configurable via `EYES_IDLE_TIMEOUT_MS` in `eyes.c`).
+
+Two eye styles are available, selected at compile time via `idf.py menuconfig` (Robot Configuration → Eyes style):
+
+- **Solid (default):** White eye shapes only, no pupils. Emotion is conveyed entirely through shape, eyelid position, and tilt.
+- **With pupils:** Black pupils inside white sclera. Supports directional look via pupil movement.
 
 ### Rendering
 
@@ -249,4 +278,23 @@ The Block Agent accepts newline-delimited JSON commands over UART (115200 baud):
 
 // Batch program
 {"cmd": "BATCH_PROGRAM", "blocks": [{"type": 1, "name": "A", "channel": 0}, ...]}
+```
+
+### Board Reader Commands (Debug Build)
+
+The board accepts JSON commands over UART when built with `CONFIG_BOARD_SERIAL_CMD`:
+
+```jsonc
+// Scan I2C channels for blocks
+{"cmd": "SCAN_CHANNELS"}
+
+// Send EEPROM blocks to robot via ESP-NOW
+{"cmd": "SEND_TO_ROBOT"}
+
+// Send a virtual block program to robot (no physical EEPROMs needed)
+{"cmd": "SEND_BLOCKS", "blocks": [{"type": 1, "name": "Begin"}, {"type": 16, "name": "Forward"}, {"type": 2, "name": "End"}]}
+// → {"response": "SEND_OK", "blocks_sent": 3}
+
+// Get board status
+{"cmd": "GET_STATUS"}
 ```

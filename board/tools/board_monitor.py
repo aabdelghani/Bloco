@@ -60,15 +60,59 @@ BLOCK_NAMES = {
     0x72: ("SENSOR_EYE", "Sensors", "#00BCD4"),
     0x73: ("SENSOR_TELESCOPE", "Sensors", "#00BCD4"),
     0x74: ("SENSOR_SOUND_MODULE", "Sensors", "#00BCD4"),
+    0x80: ("EYES_NORMAL", "Eyes", "#E91E63"),
+    0x81: ("EYES_HAPPY", "Eyes", "#E91E63"),
+    0x82: ("EYES_SAD", "Eyes", "#E91E63"),
+    0x83: ("EYES_ANGRY", "Eyes", "#E91E63"),
+    0x84: ("EYES_SURPRISED", "Eyes", "#E91E63"),
+    0x85: ("EYES_SLEEPING", "Eyes", "#E91E63"),
+    0x86: ("EYES_EXCITED", "Eyes", "#E91E63"),
+    0x87: ("EYES_FOCUSED", "Eyes", "#E91E63"),
+    0x88: ("LOOK_CENTER", "Eyes Look", "#E91E63"),
+    0x89: ("LOOK_LEFT", "Eyes Look", "#E91E63"),
+    0x8A: ("LOOK_RIGHT", "Eyes Look", "#E91E63"),
+    0x8B: ("LOOK_UP", "Eyes Look", "#E91E63"),
+    0x8C: ("LOOK_DOWN", "Eyes Look", "#E91E63"),
 }
 
 
-def detect_port():
-    for p in serial.tools.list_ports.comports():
-        if "ACM" in p.device or "USB" in p.device:
-            return p.device
-    ports = [p.device for p in serial.tools.list_ports.comports()]
-    return ports[0] if ports else None
+def detect_device_role(port):
+    """Open a port briefly and read boot output to detect device role."""
+    try:
+        ser = serial.Serial(port, 115200, timeout=0.5)
+        time.sleep(0.1)
+        ser.reset_input_buffer()
+        # Send a newline to trigger any output, then read
+        ser.write(b"\n")
+        ser.flush()
+        time.sleep(0.3)
+        lines = []
+        while ser.in_waiting:
+            lines.append(ser.readline().decode(errors="replace").strip())
+        ser.close()
+        for line in lines:
+            if "DEVICE_ROLE=board" in line or "Bloco Board" in line:
+                return "board"
+            if "DEVICE_ROLE=robo" in line or "Bloco Robot" in line:
+                return "robo"
+    except Exception:
+        pass
+    return None
+
+
+def detect_port(role=None):
+    """Detect a serial port, optionally filtering by device role."""
+    candidates = [p.device for p in serial.tools.list_ports.comports()
+                  if "ACM" in p.device or "USB" in p.device]
+    if not candidates:
+        ports = [p.device for p in serial.tools.list_ports.comports()]
+        return ports[0] if ports else None
+    if role:
+        for port in candidates:
+            detected = detect_device_role(port)
+            if detected == role:
+                return port
+    return candidates[0]
 
 
 class SerialConnection:
@@ -169,7 +213,7 @@ class FlashTab:
     def _refresh_ports(self):
         ports = SerialConnection.list_ports()
         self.port_combo["values"] = ports
-        detected = detect_port()
+        detected = detect_port("board")
         if detected and not self.port_var.get():
             self.port_var.set(detected)
         elif ports and not self.port_var.get():
@@ -316,7 +360,7 @@ class SlotsTab:
         ports = SerialConnection.list_ports()
         self.port_combo["values"] = ports
         if ports and not self.port_var.get():
-            detected = detect_port()
+            detected = detect_port("board")
             if detected:
                 self.port_var.set(detected)
             else:
@@ -571,6 +615,280 @@ class SlotsTab:
         self._draw_slots()
 
 
+class SimulatorTab:
+    """Tab for composing block programs via drag-and-drop and sending to robot."""
+
+    # Block categories for palette layout
+    CATEGORIES = [
+        ("Actions", [0x01, 0x02]),
+        ("Movement", [0x10, 0x11, 0x12, 0x13, 0x14, 0x15]),
+        ("Control Flow", [0x20, 0x21, 0x22, 0x23]),
+        ("Sound", [0x30, 0x31, 0x32, 0x33, 0x34]),
+        ("Light", [0x40, 0x41, 0x42]),
+        ("Wait", [0x50]),
+        ("Parameters", [0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67,
+                        0x68, 0x69, 0x6A, 0x6B]),
+        ("Eyes", [0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87]),
+        ("Eyes Look", [0x88, 0x89, 0x8A, 0x8B, 0x8C]),
+        ("Sensors", [0x70, 0x71, 0x72, 0x73, 0x74]),
+    ]
+
+    CARD_W = 120
+    CARD_H = 36
+    CARD_PAD = 4
+
+    def __init__(self, parent, conn):
+        self.frame = ttk.Frame(parent)
+        self.conn = conn  # shared SerialConnection from SlotsTab
+        self.program = []  # list of (type_id, name, color)
+
+        # Drag state
+        self._drag_idx = None
+        self._drag_start_y = 0
+        self._drag_item_ids = []
+        self._drag_orig_y = 0
+
+        # Main paned layout
+        paned = ttk.PanedWindow(self.frame, orient="horizontal")
+        paned.pack(fill="both", expand=True, padx=8, pady=(8, 0))
+
+        # --- Left: palette ---
+        palette_frame = ttk.LabelFrame(self.frame, text="Block Palette")
+        paned.add(palette_frame, weight=1)
+
+        palette_canvas = tk.Canvas(palette_frame, bg="#2d2d2d", highlightthickness=0)
+        palette_scroll = ttk.Scrollbar(palette_frame, orient="vertical", command=palette_canvas.yview)
+        palette_canvas.configure(yscrollcommand=palette_scroll.set)
+        palette_scroll.pack(side="right", fill="y")
+        palette_canvas.pack(side="left", fill="both", expand=True)
+
+        palette_inner = ttk.Frame(palette_canvas)
+        palette_canvas.create_window((0, 0), window=palette_inner, anchor="nw")
+
+        for cat_name, type_ids in self.CATEGORIES:
+            lbl = tk.Label(palette_inner, text=cat_name, font=("Helvetica", 9, "bold"),
+                           fg="#ccc", bg="#2d2d2d", anchor="w")
+            lbl.pack(fill="x", padx=4, pady=(6, 2))
+
+            row_frame = tk.Frame(palette_inner, bg="#2d2d2d")
+            row_frame.pack(fill="x", padx=4)
+
+            for type_id in type_ids:
+                if type_id not in BLOCK_NAMES:
+                    continue
+                name, _, color = BLOCK_NAMES[type_id]
+                text_color = "#000" if color in ("#FFEB3B",) else "#fff"
+                btn = tk.Button(
+                    row_frame, text=name, bg=color, fg=text_color,
+                    activebackground=color, activeforeground=text_color,
+                    font=("Helvetica", 8, "bold"), relief="raised", bd=1,
+                    padx=4, pady=2, cursor="hand2",
+                    command=lambda tid=type_id: self._add_block(tid),
+                )
+                btn.pack(side="left", padx=2, pady=2)
+
+        palette_inner.update_idletasks()
+        palette_canvas.configure(scrollregion=palette_canvas.bbox("all"))
+        palette_canvas.bind("<Configure>",
+                            lambda e: palette_canvas.configure(scrollregion=palette_canvas.bbox("all")))
+
+        # --- Right: program list ---
+        program_frame = ttk.LabelFrame(self.frame, text="Program")
+        paned.add(program_frame, weight=1)
+
+        self.prog_canvas = tk.Canvas(program_frame, bg="#1e1e1e", highlightthickness=0)
+        prog_scroll = ttk.Scrollbar(program_frame, orient="vertical", command=self.prog_canvas.yview)
+        self.prog_canvas.configure(yscrollcommand=prog_scroll.set)
+        prog_scroll.pack(side="right", fill="y")
+        self.prog_canvas.pack(side="left", fill="both", expand=True)
+
+        # Bind drag events on program canvas
+        self.prog_canvas.bind("<Button-1>", self._on_press)
+        self.prog_canvas.bind("<B1-Motion>", self._on_drag)
+        self.prog_canvas.bind("<ButtonRelease-1>", self._on_drop)
+        self.prog_canvas.bind("<Button-3>", self._on_right_click)
+        self.prog_canvas.bind("<Delete>", self._on_delete_key)
+        self.prog_canvas.bind("<BackSpace>", self._on_delete_key)
+
+        # --- Bottom: action buttons ---
+        action_frame = ttk.Frame(self.frame)
+        action_frame.pack(fill="x", padx=8, pady=(4, 4))
+
+        ttk.Button(action_frame, text="Clear", command=self._clear_program).pack(side="left", padx=4)
+        self.send_btn = ttk.Button(action_frame, text="Send to Robot", command=self._send_to_robot)
+        self.send_btn.pack(side="right", padx=4)
+
+        # Status
+        self.status_var = tk.StringVar(value="Click blocks in the palette to build a program")
+        ttk.Label(self.frame, textvariable=self.status_var, relief="sunken", anchor="w").pack(
+            fill="x", side="bottom", padx=8, pady=(0, 8))
+
+    def _add_block(self, type_id):
+        if type_id not in BLOCK_NAMES:
+            return
+        name, _, color = BLOCK_NAMES[type_id]
+        self.program.append((type_id, name, color))
+        self._redraw_program()
+        self.status_var.set(f"Added {name} — {len(self.program)} block(s) in program")
+
+    def _remove_block(self, idx):
+        if 0 <= idx < len(self.program):
+            removed = self.program.pop(idx)
+            self._redraw_program()
+            self.status_var.set(f"Removed {removed[1]} — {len(self.program)} block(s)")
+
+    def _clear_program(self):
+        self.program.clear()
+        self._redraw_program()
+        self.status_var.set("Program cleared")
+
+    def _redraw_program(self):
+        c = self.prog_canvas
+        c.delete("all")
+
+        for i, (type_id, name, color) in enumerate(self.program):
+            y = self.CARD_PAD + i * (self.CARD_H + self.CARD_PAD)
+            self._draw_card(c, i, y, type_id, name, color)
+
+        total_h = len(self.program) * (self.CARD_H + self.CARD_PAD) + self.CARD_PAD
+        c.configure(scrollregion=(0, 0, 300, max(total_h, c.winfo_height())))
+
+    def _draw_card(self, c, idx, y, type_id, name, color, tag_prefix="card"):
+        x = self.CARD_PAD
+        w = max(c.winfo_width() - 2 * self.CARD_PAD, self.CARD_W)
+        tag = f"{tag_prefix}_{idx}"
+        text_color = "#000" if color in ("#FFEB3B",) else "#fff"
+
+        c.create_rectangle(x, y, x + w, y + self.CARD_H,
+                           fill=color, outline="#444", width=1, tags=tag)
+        c.create_text(x + 8, y + self.CARD_H // 2,
+                      text=f"{idx + 1}.", fill=text_color,
+                      font=("Helvetica", 9, "bold"), anchor="w", tags=tag)
+        c.create_text(x + 30, y + self.CARD_H // 2,
+                      text=name, fill=text_color,
+                      font=("Helvetica", 9, "bold"), anchor="w", tags=tag)
+        c.create_text(x + w - 8, y + self.CARD_H // 2,
+                      text=f"0x{type_id:02X}", fill=text_color,
+                      font=("Helvetica", 7), anchor="e", tags=tag)
+
+    def _idx_at_y(self, y):
+        """Return the program index at canvas y coordinate."""
+        idx = int((y - self.CARD_PAD) / (self.CARD_H + self.CARD_PAD))
+        return max(0, min(idx, len(self.program) - 1))
+
+    def _on_press(self, event):
+        if not self.program:
+            return
+        cy = self.prog_canvas.canvasy(event.y)
+        self._drag_idx = self._idx_at_y(cy)
+        self._drag_start_y = cy
+        self._drag_orig_y = self.CARD_PAD + self._drag_idx * (self.CARD_H + self.CARD_PAD)
+        self.prog_canvas.focus_set()
+
+    def _on_drag(self, event):
+        if self._drag_idx is None or len(self.program) < 2:
+            return
+        cy = self.prog_canvas.canvasy(event.y)
+        dy = cy - self._drag_start_y
+
+        # Redraw all cards, highlighting the dragged one at offset position
+        c = self.prog_canvas
+        c.delete("all")
+
+        drag_entry = self.program[self._drag_idx]
+        for i, (type_id, name, color) in enumerate(self.program):
+            if i == self._drag_idx:
+                continue
+            y = self.CARD_PAD + i * (self.CARD_H + self.CARD_PAD)
+            self._draw_card(c, i, y, type_id, name, color)
+
+        # Draw dragged card at offset
+        drag_y = self._drag_orig_y + dy
+        type_id, name, color = drag_entry
+        self._draw_card(c, self._drag_idx, drag_y, type_id, name, color, "drag")
+        # Draw outline for drop position
+        target = self._idx_at_y(cy)
+        target_y = self.CARD_PAD + target * (self.CARD_H + self.CARD_PAD)
+        x = self.CARD_PAD
+        w = max(c.winfo_width() - 2 * self.CARD_PAD, self.CARD_W)
+        c.create_rectangle(x, target_y, x + w, target_y + self.CARD_H,
+                           fill="", outline="#FFD700", width=2, dash=(4, 4), tags="drop_indicator")
+
+    def _on_drop(self, event):
+        if self._drag_idx is None:
+            return
+        cy = self.prog_canvas.canvasy(event.y)
+        target = self._idx_at_y(cy)
+        if target != self._drag_idx:
+            item = self.program.pop(self._drag_idx)
+            self.program.insert(target, item)
+            self.status_var.set(f"Moved {item[1]} to position {target + 1}")
+        self._drag_idx = None
+        self._redraw_program()
+
+    def _on_right_click(self, event):
+        if not self.program:
+            return
+        cy = self.prog_canvas.canvasy(event.y)
+        idx = self._idx_at_y(cy)
+        # Verify click is within card bounds
+        card_top = self.CARD_PAD + idx * (self.CARD_H + self.CARD_PAD)
+        card_bot = card_top + self.CARD_H
+        if card_top <= cy <= card_bot:
+            menu = tk.Menu(self.prog_canvas, tearoff=0)
+            menu.add_command(label=f"Remove {self.program[idx][1]}",
+                             command=lambda: self._remove_block(idx))
+            menu.tk_popup(event.x_root, event.y_root)
+
+    def _on_delete_key(self, event):
+        """Remove last block on Delete/Backspace key."""
+        if self.program:
+            self._remove_block(len(self.program) - 1)
+
+    def _send_to_robot(self):
+        if not self.program:
+            self.status_var.set("No blocks in program")
+            return
+        if not self.conn.connected:
+            self.status_var.set("Not connected — connect via I2C Blocks tab first")
+            return
+
+        blocks_json = [
+            {"type": type_id, "name": name}
+            for type_id, name, _ in self.program
+        ]
+        cmd = {"cmd": "SEND_BLOCKS", "blocks": blocks_json}
+
+        self.send_btn.config(state="disabled")
+        self.status_var.set("Sending program to robot...")
+
+        def work():
+            return self.conn.send_command(cmd)
+
+        def done(responses):
+            self.send_btn.config(state="normal")
+            if isinstance(responses, Exception) or not responses:
+                self.status_var.set("Send failed — check connection")
+                return
+            for r in responses:
+                if r.get("response") == "SEND_OK":
+                    n = r.get("blocks_sent", len(self.program))
+                    self.status_var.set(f"Sent {n} block(s) to robot!")
+                    return
+                if r.get("response") == "ERROR":
+                    self.status_var.set(f"Board error: {r.get('msg', 'unknown')}")
+                    return
+            self.status_var.set("Send completed (no confirmation)")
+
+        def worker():
+            try:
+                result = work()
+            except Exception as e:
+                result = e
+            self.frame.after(0, lambda: done(result))
+        threading.Thread(target=worker, daemon=True).start()
+
+
 def main():
     root = tk.Tk(className="Bloco Board Monitor")
     root.title("Bloco Board Monitor")
@@ -587,6 +905,10 @@ def main():
     # Slots tab (created first so flash can reference it)
     slots_tab = SlotsTab(root)
     notebook.add(slots_tab.frame, text="  I2C Blocks  ")
+
+    # Simulator tab (shares serial connection with SlotsTab)
+    sim_tab = SimulatorTab(root, slots_tab.conn)
+    notebook.add(sim_tab.frame, text="  Simulator  ")
 
     def on_flash_done(port):
         notebook.select(slots_tab.frame)

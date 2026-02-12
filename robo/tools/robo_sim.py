@@ -34,6 +34,10 @@ BLOCK_NAMES = {
     0x68: "PARAM_UNTIL_LIGHT", 0x69: "PARAM_UNTIL_DARK", 0x6A: "PARAM_UNTIL_NEAR", 0x6B: "PARAM_UNTIL_FAR",
     0x70: "SENSOR_LIGHT_BULB", 0x71: "SENSOR_EAR", 0x72: "SENSOR_EYE",
     0x73: "SENSOR_TELESCOPE", 0x74: "SENSOR_SOUND_MODULE",
+    0x80: "EYES_NORMAL", 0x81: "EYES_HAPPY", 0x82: "EYES_SAD", 0x83: "EYES_ANGRY",
+    0x84: "EYES_SURPRISED", 0x85: "EYES_SLEEPING", 0x86: "EYES_EXCITED", 0x87: "EYES_FOCUSED",
+    0x88: "LOOK_CENTER", 0x89: "LOOK_LEFT", 0x8A: "LOOK_RIGHT",
+    0x8B: "LOOK_UP", 0x8C: "LOOK_DOWN",
 }
 
 # Colors for block categories
@@ -46,15 +50,50 @@ BLOCK_COLORS = {
     "PLAY_CIRCLE": "#9C27B0", "PLAY_SQUARE": "#9C27B0",
     "WHITE_LIGHT_ON": "#FFEB3B", "RED_LIGHT_ON": "#f44336", "BLUE_LIGHT_ON": "#2196F3",
     "WAIT_FOR_CLAP": "#795548",
+    "EYES_NORMAL": "#E91E63", "EYES_HAPPY": "#E91E63", "EYES_SAD": "#E91E63",
+    "EYES_ANGRY": "#E91E63", "EYES_SURPRISED": "#E91E63", "EYES_SLEEPING": "#E91E63",
+    "EYES_EXCITED": "#E91E63", "EYES_FOCUSED": "#E91E63",
+    "LOOK_CENTER": "#E91E63", "LOOK_LEFT": "#E91E63", "LOOK_RIGHT": "#E91E63",
+    "LOOK_UP": "#E91E63", "LOOK_DOWN": "#E91E63",
 }
 
 
-def detect_port():
-    for p in serial.tools.list_ports.comports():
-        if "ACM" in p.device or "USB" in p.device:
-            return p.device
-    ports = [p.device for p in serial.tools.list_ports.comports()]
-    return ports[0] if ports else None
+def detect_device_role(port):
+    """Open a port briefly and read boot output to detect device role."""
+    try:
+        ser = serial.Serial(port, 115200, timeout=0.5)
+        time.sleep(0.1)
+        ser.reset_input_buffer()
+        ser.write(b"\n")
+        ser.flush()
+        time.sleep(0.3)
+        lines = []
+        while ser.in_waiting:
+            lines.append(ser.readline().decode(errors="replace").strip())
+        ser.close()
+        for line in lines:
+            if "DEVICE_ROLE=board" in line or "Bloco Board" in line:
+                return "board"
+            if "DEVICE_ROLE=robo" in line or "Bloco Robot" in line:
+                return "robo"
+    except Exception:
+        pass
+    return None
+
+
+def detect_port(role=None):
+    """Detect a serial port, optionally filtering by device role."""
+    candidates = [p.device for p in serial.tools.list_ports.comports()
+                  if "ACM" in p.device or "USB" in p.device]
+    if not candidates:
+        ports = [p.device for p in serial.tools.list_ports.comports()]
+        return ports[0] if ports else None
+    if role:
+        for port in candidates:
+            detected = detect_device_role(port)
+            if detected == role:
+                return port
+    return candidates[0]
 
 
 class FlashTab:
@@ -103,7 +142,7 @@ class FlashTab:
         ports = [p.device for p in serial.tools.list_ports.comports()]
         self.port_combo["values"] = ports
         if self.port_var.get() not in ports:
-            detected = detect_port()
+            detected = detect_port("robo")
             if detected:
                 self.port_var.set(detected)
             elif ports:
@@ -240,7 +279,7 @@ class MonitorTab:
         ports = [p.device for p in serial.tools.list_ports.comports()]
         self.port_combo["values"] = ports
         if self.port_var.get() not in ports:
-            detected = detect_port()
+            detected = detect_port("robo")
             if detected:
                 self.port_var.set(detected)
             elif ports:
@@ -307,7 +346,7 @@ class MonitorTab:
             tag = "recv"
         elif "Executing" in line or "Forward" in line or "Backward" in line or \
              "Turn" in line or "Shake" in line or "Spin" in line or "Beep" in line or \
-             "Program END" in line or "Program finished" in line:
+             "Eyes:" in line or "Program END" in line or "Program finished" in line:
             tag = "exec"
         elif "WARN" in line or "Incomplete" in line:
             tag = "warn"

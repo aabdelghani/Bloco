@@ -37,6 +37,8 @@ typedef struct {
 
 // clang-format off
 static const expression_keyframe_t s_keyframes[EYES_EXPRESSION_COUNT] = {
+#ifdef CONFIG_ROBO_EYES_STYLE_PUPIL
+    // --- With pupils: classic cartoon eyes ---
     [EYES_NORMAL] = {
         .eye = { .eye_w = 30, .eye_h = 34, .eye_r = 14,
                  .lid_top = 0, .lid_bot = 0, .lid_tilt = 0,
@@ -54,10 +56,10 @@ static const expression_keyframe_t s_keyframes[EYES_EXPRESSION_COUNT] = {
         .lid_tilt_r = 8,
     },
     [EYES_ANGRY] = {
-        .eye = { .eye_w = 32, .eye_h = 30, .eye_r = 10,
-                 .lid_top = 12, .lid_bot = 0, .lid_tilt = 10,
-                 .pupil_w = 9, .pupil_h = 10 },
-        .lid_tilt_r = -10,
+        .eye = { .eye_w = 34, .eye_h = 26, .eye_r = 6,
+                 .lid_top = 18, .lid_bot = 0, .lid_tilt = 14,
+                 .pupil_w = 7, .pupil_h = 8 },
+        .lid_tilt_r = -14,
     },
     [EYES_SURPRISED] = {
         .eye = { .eye_w = 34, .eye_h = 38, .eye_r = 18,
@@ -79,8 +81,44 @@ static const expression_keyframe_t s_keyframes[EYES_EXPRESSION_COUNT] = {
                  .lid_top = 4, .lid_bot = 4, .lid_tilt = 0,
                  .pupil_w = 13, .pupil_h = 14 },
     },
+#else
+    // --- Solid: no pupils, emotion via shape only ---
+    [EYES_NORMAL] = {
+        .eye = { .eye_w = 30, .eye_h = 34, .eye_r = 14,
+                 .lid_top = 0, .lid_bot = 0, .lid_tilt = 0 },
+    },
+    [EYES_HAPPY] = {
+        .eye = { .eye_w = 32, .eye_h = 34, .eye_r = 16,
+                 .lid_top = 0, .lid_bot = 24, .lid_tilt = 0 },
+    },
+    [EYES_SAD] = {
+        .eye = { .eye_w = 26, .eye_h = 28, .eye_r = 12,
+                 .lid_top = 12, .lid_bot = 0, .lid_tilt = -10 },
+        .lid_tilt_r = 10,
+    },
+    [EYES_ANGRY] = {
+        .eye = { .eye_w = 34, .eye_h = 24, .eye_r = 4,
+                 .lid_top = 20, .lid_bot = 4, .lid_tilt = 16 },
+        .lid_tilt_r = -16,
+    },
+    [EYES_SURPRISED] = {
+        .eye = { .eye_w = 36, .eye_h = 40, .eye_r = 20,
+                 .lid_top = 0, .lid_bot = 0, .lid_tilt = 0 },
+    },
+    [EYES_SLEEPING] = {
+        .eye = { .eye_w = 28, .eye_h = 34, .eye_r = 14,
+                 .lid_top = 32, .lid_bot = 0, .lid_tilt = 0 },
+    },
+    [EYES_EXCITED] = {
+        .eye = { .eye_w = 36, .eye_h = 38, .eye_r = 18,
+                 .lid_top = 0, .lid_bot = 0, .lid_tilt = 0 },
+    },
+    [EYES_FOCUSED] = {
+        .eye = { .eye_w = 28, .eye_h = 28, .eye_r = 10,
+                 .lid_top = 8, .lid_bot = 8, .lid_tilt = 0 },
+    },
+#endif
 };
-// clang-format on
 
 // ---------------------------------------------------------------------------
 // Look-direction pupil offsets
@@ -264,15 +302,17 @@ static void render_band(int band_y)
                 int lid_bot_y = cy + eh - lb;
                 if (y > lid_bot_y) continue;
 
-                // Pixel is inside the visible eye (white sclera)
+#ifdef CONFIG_ROBO_EYES_STYLE_PUPIL
                 // Check if inside pupil
-                int pcx = ecx + pdx;
-                int pcy = cy + pdy;
-                if (pw > 0 && ph > 0 && in_ellipse(x, y, pcx, pcy, pw, ph)) {
-                    color = COLOR_BLACK;
-                } else {
-                    color = COLOR_WHITE;
+                {
+                    int pcx = ecx + pdx;
+                    int pcy = cy + pdy;
+                    color = (pw > 0 && ph > 0 && in_ellipse(x, y, pcx, pcy, pw, ph))
+                            ? COLOR_BLACK : COLOR_WHITE;
                 }
+#else
+                color = COLOR_WHITE;
+#endif
             }
 
             *p++ = color;
@@ -426,10 +466,14 @@ void eyes_set_expression(eyes_expression_t expr)
 
 void eyes_set_look_direction(eyes_look_dir_t dir)
 {
+#ifdef CONFIG_ROBO_EYES_STYLE_PUPIL
     s_look = dir;
     set_target_from_expression();
     s_transition_remaining = TRANSITION_MS;
     ESP_LOGD(TAG, "Look -> %d", dir);
+#else
+    (void)dir;
+#endif
 }
 
 void eyes_blink(void)

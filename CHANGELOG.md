@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-02-12
+
+### Added
+- **Block Simulator tab** (`board/tools/board_monitor.py`) — Drag-and-drop block composer in the Board Monitor GUI. Click palette blocks to build a program, drag to reorder, right-click to remove, and send directly to the robot via serial.
+- **`SEND_BLOCKS` serial command** (`board/main/main.c`) — New debug-mode serial command that accepts a JSON block array and relays it to the robot via ESP-NOW, enabling wireless program upload without physical EEPROM blocks.
+- **Eye block types** (`common/include/block_types.h`) — 13 new block types for controlling robot eye expressions (`0x80`–`0x87`: NORMAL, HAPPY, SAD, ANGRY, SURPRISED, SLEEPING, EXCITED, FOCUSED) and look direction (`0x88`–`0x8C`: CENTER, LEFT, RIGHT, UP, DOWN).
+- **Device role auto-detection** — Board and robot firmware write their role ("board"/"robo") to NVS on boot and print `DEVICE_ROLE=` at startup. Python tools auto-detect the correct serial port by scanning for this marker.
+- **Robot eye style configuration** (`robo/main/Kconfig.projbuild`) — Compile-time `menuconfig` choice between "Solid (no pupils)" and "With pupils" eye rendering styles. Solid style is the default.
+
+### Changed
+- `robo/main/eyes.c` — New solid eye style with shape-only emotion (no pupils). Expressions tuned for more expressive shapes: wider happy squeeze, sharper angry tilt, bigger surprised circles. Angry expression made more intense (wider, heavier lid, steeper tilt).
+- `robo/main/executor.c` — Eye block handlers with 1-second display delay so expressions are visible during execution.
+- `board/main/main.c` — Refactored `send_program_to_robot()` to accept block array parameters instead of reading from global EEPROM data. UART buffer increased to 1024 bytes for JSON commands.
+- `board/main/CMakeLists.txt` — Added `json` component for cJSON support.
+- `board/tools/board_monitor.py` — Added eye block types to block palette, device role auto-detection.
+- `robo/tools/robo_sim.py` — Added eye block types to block names/colors, device role auto-detection, executor eye log highlighting.
+
 ## [0.3.0] - 2026-02-12
 
 ### Added

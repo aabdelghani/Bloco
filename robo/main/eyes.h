@@ -26,7 +26,7 @@ void eyes_init(void);
 // Set target expression (smooth transition over ~250ms)
 void eyes_set_expression(eyes_expression_t expr);
 
-// Set look direction (smooth pupil movement)
+// Set look direction (pupil movement — only effective with CONFIG_ROBO_EYES_STYLE_PUPIL)
 void eyes_set_look_direction(eyes_look_dir_t dir);
 
 // Trigger a single blink

@@ -128,6 +128,18 @@ void app_main(void)
 {
     ESP_LOGI(TAG, "=== Bloco Robot ===");
 
+    // Store device role in NVS for identification
+    {
+        nvs_handle_t nvs;
+        if (nvs_open("bloco", NVS_READWRITE, &nvs) == ESP_OK) {
+            nvs_set_str(nvs, "role", "robo");
+            nvs_commit(nvs);
+            nvs_close(nvs);
+        }
+    }
+    printf("DEVICE_ROLE=robo\n");
+    fflush(stdout);
+
     // Create semaphore
     program_ready_sem = xSemaphoreCreateBinary();
 

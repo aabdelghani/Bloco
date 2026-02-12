@@ -75,21 +75,10 @@ static void button_init(void)
     gpio_isr_handler_add(SEND_BUTTON_GPIO, button_isr, NULL);
 }
 
-static void send_program_to_robot(void)
+static void send_program_to_robot(const block_data_t *blocks, uint8_t count)
 {
-    // Collect present blocks
-    block_data_t blocks[NUM_EEPROMS];
-    uint8_t count = 0;
-
-    for (int ch = 0; ch < NUM_EEPROMS; ch++) {
-        if (eeprom_present[ch] && data_valid[ch]) {
-            memcpy(&blocks[count], eeprom_data[ch], sizeof(block_data_t));
-            count++;
-        }
-    }
-
     if (count == 0) {
-        ESP_LOGW(TAG, "No blocks to send — insert EEPROMs first");
+        ESP_LOGW(TAG, "No blocks to send");
         return;
     }
 
@@ -124,6 +113,27 @@ static void send_program_to_robot(void)
     ESP_LOGI(TAG, ">>> Program sent successfully <<<");
 }
 
+// Build block array from EEPROM data and send to robot
+static void send_eeprom_program_to_robot(void)
+{
+    block_data_t blocks[NUM_EEPROMS];
+    uint8_t count = 0;
+
+    for (int ch = 0; ch < NUM_EEPROMS; ch++) {
+        if (eeprom_present[ch] && data_valid[ch]) {
+            memcpy(&blocks[count], eeprom_data[ch], sizeof(block_data_t));
+            count++;
+        }
+    }
+
+    if (count == 0) {
+        ESP_LOGW(TAG, "No blocks to send — insert EEPROMs first");
+        return;
+    }
+
+    send_program_to_robot(blocks, count);
+}
+
 static void print_hex_dump(const uint8_t *buf, size_t len)
 {
     for (size_t i = 0; i < len; i += 16) {
@@ -142,6 +152,8 @@ static void print_hex_dump(const uint8_t *buf, size_t len)
 
 // --- JSON command handler for GUI tool (debug builds only) ---
 #ifdef CONFIG_BOARD_SERIAL_CMD
+
+#include "cJSON.h"
 
 static void print_block_json(int ch, const uint8_t *raw)
 {
@@ -195,9 +207,50 @@ static void handle_serial_command(const char *line)
         fflush(stdout);
 
     } else if (strstr(line, "SEND_TO_ROBOT")) {
-        send_program_to_robot();
+        send_eeprom_program_to_robot();
         printf("{\"response\":\"SEND_OK\"}\n");
         fflush(stdout);
+
+    } else if (strstr(line, "SEND_BLOCKS")) {
+        // Parse JSON to get blocks array
+        cJSON *root = cJSON_Parse(line);
+        if (!root) {
+            printf("{\"response\":\"ERROR\",\"msg\":\"JSON parse failed\"}\n");
+            fflush(stdout);
+        } else {
+            cJSON *arr = cJSON_GetObjectItem(root, "blocks");
+            if (!cJSON_IsArray(arr)) {
+                printf("{\"response\":\"ERROR\",\"msg\":\"missing blocks array\"}\n");
+                fflush(stdout);
+            } else {
+                int n = cJSON_GetArraySize(arr);
+                if (n <= 0 || n > ESPNOW_MAX_BLOCKS) {
+                    printf("{\"response\":\"ERROR\",\"msg\":\"block count out of range\"}\n");
+                    fflush(stdout);
+                } else {
+                    block_data_t blocks[ESPNOW_MAX_BLOCKS];
+                    memset(blocks, 0, sizeof(blocks));
+
+                    for (int i = 0; i < n; i++) {
+                        cJSON *item = cJSON_GetArrayItem(arr, i);
+                        cJSON *j_type = cJSON_GetObjectItem(item, "type");
+                        cJSON *j_name = cJSON_GetObjectItem(item, "name");
+
+                        if (cJSON_IsNumber(j_type))
+                            blocks[i].type = (uint8_t)j_type->valueint;
+                        blocks[i].version = BLOCK_VERSION;
+                        if (cJSON_IsString(j_name) && j_name->valuestring)
+                            strncpy(blocks[i].name, j_name->valuestring, BLOCK_NAME_MAX_LEN - 1);
+                        blocks[i].checksum = block_calc_checksum(&blocks[i]);
+                    }
+
+                    send_program_to_robot(blocks, (uint8_t)n);
+                    printf("{\"response\":\"SEND_OK\",\"blocks_sent\":%d}\n", n);
+                    fflush(stdout);
+                }
+            }
+            cJSON_Delete(root);
+        }
 
     } else if (strstr(line, "GET_STATUS")) {
         int present_count = 0;
@@ -212,7 +265,7 @@ static void handle_serial_command(const char *line)
 
 static void uart_cmd_task(void *arg)
 {
-    char line_buf[256];
+    char line_buf[1024];
     int pos = 0;
 
     while (1) {
@@ -240,6 +293,18 @@ static void uart_cmd_task(void *arg)
 void app_main(void)
 {
     ESP_LOGI(TAG, "=== Bloco Board Reader ===");
+
+    // Store device role in NVS for identification
+    {
+        nvs_handle_t nvs;
+        if (nvs_open("bloco", NVS_READWRITE, &nvs) == ESP_OK) {
+            nvs_set_str(nvs, "role", "board");
+            nvs_commit(nvs);
+            nvs_close(nvs);
+        }
+    }
+    printf("DEVICE_ROLE=board\n");
+    fflush(stdout);
 
     // --- Init WiFi + ESP-NOW ---
     wifi_espnow_init();
@@ -271,7 +336,7 @@ void app_main(void)
         // Check if send was requested
         if (send_requested) {
             send_requested = false;
-            send_program_to_robot();
+            send_eeprom_program_to_robot();
         }
 
         for (int ch = 0; ch < NUM_EEPROMS; ch++) {

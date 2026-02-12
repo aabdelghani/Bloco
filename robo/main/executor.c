@@ -198,6 +198,75 @@ void executor_run(const block_data_t *blocks, uint8_t count)
             ESP_LOGI(TAG, "  IF/END_IF (placeholder — skipping)");
             break;
 
+        // Eye expressions
+        case BLOCK_EYES_NORMAL:
+            ESP_LOGI(TAG, "  Eyes: normal");
+            eyes_set_expression(EYES_NORMAL);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+        case BLOCK_EYES_HAPPY:
+            ESP_LOGI(TAG, "  Eyes: happy");
+            eyes_set_expression(EYES_HAPPY);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+        case BLOCK_EYES_SAD:
+            ESP_LOGI(TAG, "  Eyes: sad");
+            eyes_set_expression(EYES_SAD);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+        case BLOCK_EYES_ANGRY:
+            ESP_LOGI(TAG, "  Eyes: angry");
+            eyes_set_expression(EYES_ANGRY);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+        case BLOCK_EYES_SURPRISED:
+            ESP_LOGI(TAG, "  Eyes: surprised");
+            eyes_set_expression(EYES_SURPRISED);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+        case BLOCK_EYES_SLEEPING:
+            ESP_LOGI(TAG, "  Eyes: sleeping");
+            eyes_set_expression(EYES_SLEEPING);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+        case BLOCK_EYES_EXCITED:
+            ESP_LOGI(TAG, "  Eyes: excited");
+            eyes_set_expression(EYES_EXCITED);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+        case BLOCK_EYES_FOCUSED:
+            ESP_LOGI(TAG, "  Eyes: focused");
+            eyes_set_expression(EYES_FOCUSED);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+
+        // Eye look direction
+        case BLOCK_EYES_LOOK_CENTER:
+            ESP_LOGI(TAG, "  Eyes: look center");
+            eyes_set_look_direction(EYES_CENTER);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+        case BLOCK_EYES_LOOK_LEFT:
+            ESP_LOGI(TAG, "  Eyes: look left");
+            eyes_set_look_direction(EYES_LEFT);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+        case BLOCK_EYES_LOOK_RIGHT:
+            ESP_LOGI(TAG, "  Eyes: look right");
+            eyes_set_look_direction(EYES_RIGHT);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+        case BLOCK_EYES_LOOK_UP:
+            ESP_LOGI(TAG, "  Eyes: look up");
+            eyes_set_look_direction(EYES_UP);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+        case BLOCK_EYES_LOOK_DOWN:
+            ESP_LOGI(TAG, "  Eyes: look down");
+            eyes_set_look_direction(EYES_DOWN);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+
         default:
             // Parameters and sensors consumed by preceding blocks or ignored standalone
             if (type >= 0x60 && type <= 0x6B) {

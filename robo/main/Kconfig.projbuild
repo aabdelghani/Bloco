@@ -1,0 +1,23 @@
+menu "Robot Configuration"
+
+    choice ROBO_EYES_STYLE
+        prompt "Eyes style"
+        default ROBO_EYES_STYLE_SOLID
+        help
+            Select the visual style for the robot's animated eyes.
+
+        config ROBO_EYES_STYLE_SOLID
+            bool "Solid (no pupils)"
+            help
+                White shapes only — emotion conveyed through eye shape,
+                eyelid position, and tilt. Simpler, Cozmo-like look.
+
+        config ROBO_EYES_STYLE_PUPIL
+            bool "With pupils"
+            help
+                Classic cartoon eyes with black pupils. Supports look
+                direction (left/right/up/down) via pupil movement.
+
+    endchoice
+
+endmenu

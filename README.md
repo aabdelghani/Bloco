@@ -56,13 +56,56 @@ idf.py build
 idf.py -p /dev/ttyACM0 flash monitor
 ```
 
-### Block GUI Tool
+### Board Reader (Debug Build)
 
-A Python/Tkinter GUI for programming blocks via serial. Includes a Flash tab that auto-builds and flashes the block firmware on startup.
+The board supports an optional serial JSON command handler for use with the board monitor GUI. To enable it, build with the debug config:
+
+```bash
+cd board
+idf.py -B build_debug -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.debug" build
+idf.py -B build_debug -p /dev/ttyACM0 flash monitor
+```
+
+Release builds (default `idf.py build`) exclude the serial handler for a smaller footprint.
+
+## Development Tools
+
+All GUI tools require Python 3 and `pyserial`:
 
 ```bash
 pip install pyserial
+```
+
+### Launchpad (`tools/launchpad.py`)
+
+A 4-step development wizard that guides you through connecting devices, flashing firmware, and launching the appropriate tools. Supports Board+Robot, Board+Block Programmer, and Board-only workflows. Verifies I2C mux connectivity after flashing the board.
+
+```bash
+python3 tools/launchpad.py
+```
+
+### Block GUI (`block/tools/block_gui.py`)
+
+Tkinter GUI for programming blocks onto EEPROMs via serial. Includes a Flash tab that auto-builds and flashes the block firmware.
+
+```bash
 python3 block/tools/block_gui.py
+```
+
+### Board Monitor (`board/tools/board_monitor.py`)
+
+Tkinter GUI for inspecting I2C block slots on the board. Requires the board to be flashed with the debug build (CONFIG_BOARD_SERIAL_CMD enabled). Scans slots, displays block data with color-coded cards, and can trigger ESP-NOW sends to the robot.
+
+```bash
+python3 board/tools/board_monitor.py
+```
+
+### Robot Simulator (`robo/tools/robo_sim.py`)
+
+Tkinter GUI for flashing and monitoring the robot firmware. Displays received block programs, tracks execution progress, and shows color-coded serial logs.
+
+```bash
+python3 robo/tools/robo_sim.py
 ```
 
 ## Project Structure
@@ -87,14 +130,22 @@ Bloco/
 │       └── block_gui.py        Python GUI for block programming
 │
 ├── board/                      Board Reader firmware
-│   └── main/
-│       └── main.c              EEPROM polling + ESP-NOW sender
+│   ├── main/
+│   │   ├── main.c              EEPROM polling + ESP-NOW sender
+│   │   └── Kconfig.projbuild   Debug build options (serial cmd handler)
+│   └── tools/
+│       └── board_monitor.py    GUI for inspecting I2C block slots
 │
-└── robo/                       Robot Controller firmware
-    └── main/
-        ├── main.c              ESP-NOW receiver + task orchestration
-        ├── motor.c/h           2-motor differential drive (LEDC PWM)
-        └── executor.c/h        Block program interpreter
+├── robo/                       Robot Controller firmware
+│   ├── main/
+│   │   ├── main.c              ESP-NOW receiver + task orchestration
+│   │   ├── motor.c/h           2-motor differential drive (LEDC PWM)
+│   │   └── executor.c/h        Block program interpreter
+│   └── tools/
+│       └── robo_sim.py         GUI for flashing and monitoring robot
+│
+└── tools/
+    └── launchpad.py            Development wizard (connect, flash, launch)
 ```
 
 ## Block Types

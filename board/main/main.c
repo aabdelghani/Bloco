@@ -140,6 +140,103 @@ static void print_hex_dump(const uint8_t *buf, size_t len)
     }
 }
 
+// --- JSON command handler for GUI tool (debug builds only) ---
+#ifdef CONFIG_BOARD_SERIAL_CMD
+
+static void print_block_json(int ch, const uint8_t *raw)
+{
+    const block_data_t *b = (const block_data_t *)raw;
+    char name_buf[BLOCK_NAME_MAX_LEN + 1];
+    memset(name_buf, 0, sizeof(name_buf));
+    memcpy(name_buf, b->name, BLOCK_NAME_MAX_LEN);
+
+    char serial_str[12];
+    snprintf(serial_str, sizeof(serial_str), "%02X%02X%02X%02X",
+             b->serial[0], b->serial[1], b->serial[2], b->serial[3]);
+
+    uint8_t calc_ck = block_calc_checksum(b);
+
+    printf("{\"response\":\"BLOCK_DATA\",\"channel\":%d,\"present\":true,"
+           "\"type\":%d,\"subtype\":%d,\"param1\":%d,\"param2\":%d,"
+           "\"serial\":\"%s\",\"version\":%d,\"checksum\":%d,\"checksum_valid\":%s,"
+           "\"name\":\"%s\",\"valid\":%s}\n",
+           ch, b->type, b->subtype, b->param1, b->param2,
+           serial_str, b->version, b->checksum,
+           (calc_ck == b->checksum) ? "true" : "false",
+           name_buf,
+           block_type_valid(b->type) ? "true" : "false");
+}
+
+static void handle_serial_command(const char *line)
+{
+    // Simple parsing — look for "cmd" field
+    // SCAN_CHANNELS: read all channels and return block data
+    if (strstr(line, "SCAN_CHANNELS")) {
+        printf("{\"response\":\"SCAN_START\",\"num_channels\":%d}\n", NUM_EEPROMS);
+        fflush(stdout);
+
+        for (int ch = 0; ch < NUM_EEPROMS; ch++) {
+            bool present = eeprom_is_present(ch);
+            if (present) {
+                uint8_t buf[BLOCK_DATA_SIZE];
+                esp_err_t err = eeprom_read(0x0000, buf, BLOCK_DATA_SIZE);
+                if (err == ESP_OK) {
+                    print_block_json(ch, buf);
+                } else {
+                    printf("{\"response\":\"BLOCK_DATA\",\"channel\":%d,\"present\":true,\"error\":\"read_failed\"}\n", ch);
+                }
+            } else {
+                printf("{\"response\":\"BLOCK_DATA\",\"channel\":%d,\"present\":false}\n", ch);
+            }
+            fflush(stdout);
+        }
+
+        printf("{\"response\":\"SCAN_END\"}\n");
+        fflush(stdout);
+
+    } else if (strstr(line, "SEND_TO_ROBOT")) {
+        send_program_to_robot();
+        printf("{\"response\":\"SEND_OK\"}\n");
+        fflush(stdout);
+
+    } else if (strstr(line, "GET_STATUS")) {
+        int present_count = 0;
+        for (int ch = 0; ch < NUM_EEPROMS; ch++) {
+            if (eeprom_present[ch]) present_count++;
+        }
+        printf("{\"response\":\"STATUS\",\"num_channels\":%d,\"blocks_present\":%d,\"i2c_ok\":true}\n",
+               NUM_EEPROMS, present_count);
+        fflush(stdout);
+    }
+}
+
+static void uart_cmd_task(void *arg)
+{
+    char line_buf[256];
+    int pos = 0;
+
+    while (1) {
+        int c = fgetc(stdin);
+        if (c == EOF) {
+            vTaskDelay(pdMS_TO_TICKS(10));
+            continue;
+        }
+        if (c == '\n' || c == '\r') {
+            if (pos > 0) {
+                line_buf[pos] = '\0';
+                if (line_buf[0] == '{') {
+                    handle_serial_command(line_buf);
+                }
+                pos = 0;
+            }
+        } else if (pos < (int)sizeof(line_buf) - 1) {
+            line_buf[pos++] = (char)c;
+        }
+    }
+}
+
+#endif // CONFIG_BOARD_SERIAL_CMD
+
 void app_main(void)
 {
     ESP_LOGI(TAG, "=== Bloco Board Reader ===");
@@ -159,6 +256,12 @@ void app_main(void)
 
     ESP_LOGI(TAG, "I2C bus ready. Polling channels 0,%d every %d ms ...", NUM_EEPROMS - 1, POLL_INTERVAL_MS);
     ESP_LOGI(TAG, "Press BOOT button (GPIO %d) to send program to robot", SEND_BUTTON_GPIO);
+
+#ifdef CONFIG_BOARD_SERIAL_CMD
+    // Start UART command listener for GUI tool
+    xTaskCreate(uart_cmd_task, "uart_cmd", 4096, NULL, 3, NULL);
+    ESP_LOGI(TAG, "Serial command handler enabled (debug build)");
+#endif
 
     memset(eeprom_present, 0, sizeof(eeprom_present));
     memset(data_valid, 0, sizeof(data_valid));

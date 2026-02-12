@@ -1,0 +1,11 @@
+menu "Board Configuration"
+
+    config BOARD_SERIAL_CMD
+        bool "Enable serial JSON command handler (for GUI tools)"
+        default n
+        help
+            Enables a UART JSON command listener that allows the
+            board_monitor.py GUI tool to scan I2C slots and trigger
+            ESP-NOW sends. Enable this for debug/development builds.
+
+endmenu

@@ -709,15 +709,14 @@ class ProgramTab:
 
 
 def main():
-    root = tk.Tk()
-    root.title("Blocko Block Agent")
+    root = tk.Tk(className="Bloco Block Agent")
+    root.title("Bloco Block Agent")
+    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.png")
+    if os.path.exists(icon_path):
+        root._icon_img = tk.PhotoImage(file=icon_path)
+        root.iconphoto(True, root._icon_img)
     root.geometry("750x600")
     root.resizable(False, False)
-
-    # Set window icon
-    icon_image = tk.PhotoImage(data=APP_ICON_B64)
-    root.iconphoto(True, icon_image)
-    root._icon_ref = icon_image
 
     # Notebook with two tabs
     notebook = ttk.Notebook(root)

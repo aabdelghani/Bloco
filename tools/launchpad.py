@@ -35,10 +35,18 @@ def detect_ports():
     return sorted(glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*"))
 
 
+def _set_icon(root):
+    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.png")
+    if os.path.exists(icon_path):
+        root._icon_img = tk.PhotoImage(file=icon_path)
+        root.iconphoto(True, root._icon_img)
+
+
 class Launchpad(tk.Tk):
     def __init__(self):
-        super().__init__()
+        super().__init__(className="Bloco Launchpad")
         self.title("Bloco Launchpad")
+        _set_icon(self)
         self.geometry("700x600")
         self.configure(bg=BG)
         self.resizable(False, False)

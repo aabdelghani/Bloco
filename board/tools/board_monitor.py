@@ -572,8 +572,12 @@ class SlotsTab:
 
 
 def main():
-    root = tk.Tk()
+    root = tk.Tk(className="Bloco Board Monitor")
     root.title("Bloco Board Monitor")
+    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.png")
+    if os.path.exists(icon_path):
+        root._icon_img = tk.PhotoImage(file=icon_path)
+        root.iconphoto(True, root._icon_img)
     root.geometry("700x580")
     root.resizable(True, True)
 

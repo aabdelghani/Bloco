@@ -130,6 +130,11 @@ static int32_t s_blink_timer;
 static int32_t s_auto_blink_timer;
 static bool s_blink_requested;
 
+// Idle sleep timer
+#define EYES_IDLE_TIMEOUT_MS  (60 * 1000)   // go to sleep after this much idle
+static int32_t s_idle_timer;
+static bool s_is_sleeping;
+
 // Band buffer (allocated once)
 static uint16_t s_band_buf[DISPLAY_BAND_PIXELS];
 
@@ -348,8 +353,24 @@ static void advance_blink(int32_t dt_ms)
     }
 }
 
+static void advance_idle(int32_t dt_ms)
+{
+    if (s_is_sleeping) return;
+
+    s_idle_timer += dt_ms;
+    if (s_idle_timer >= EYES_IDLE_TIMEOUT_MS) {
+        s_is_sleeping = true;
+        s_expr = EYES_SLEEPING;
+        s_look = EYES_CENTER;
+        set_target_from_expression();
+        s_transition_remaining = 500;  // slow drowsy transition
+        ESP_LOGI(TAG, "Idle timeout — falling asleep");
+    }
+}
+
 static void eyes_tick(void)
 {
+    advance_idle(FRAME_MS);
     advance_transition(FRAME_MS);
     advance_blink(FRAME_MS);
 
@@ -395,6 +416,8 @@ void eyes_init(void)
 void eyes_set_expression(eyes_expression_t expr)
 {
     if (expr >= EYES_EXPRESSION_COUNT) return;
+    s_idle_timer = 0;
+    s_is_sleeping = false;
     s_expr = expr;
     set_target_from_expression();
     s_transition_remaining = TRANSITION_MS;

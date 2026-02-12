@@ -428,8 +428,12 @@ class MonitorTab:
 
 
 def main():
-    root = tk.Tk()
+    root = tk.Tk(className="Bloco Robot Simulator")
     root.title("Bloco Robot Simulator")
+    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.png")
+    if os.path.exists(icon_path):
+        root._icon_img = tk.PhotoImage(file=icon_path)
+        root.iconphoto(True, root._icon_img)
     root.geometry("800x650")
     root.resizable(True, True)
 

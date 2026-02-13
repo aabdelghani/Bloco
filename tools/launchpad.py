@@ -47,9 +47,9 @@ class Launchpad(tk.Tk):
         super().__init__(className="Bloco Launchpad")
         self.title("Bloco Launchpad")
         _set_icon(self)
-        self.geometry("700x600")
+        self.geometry("700x750")
         self.configure(bg=BG)
-        self.resizable(False, False)
+        self.resizable(True, True)
 
         self.board_port = None
         self.second_port = None
@@ -323,6 +323,7 @@ class Launchpad(tk.Tk):
         self.launch_monitor_second_var = tk.BooleanVar(value=True)
         self.launch_gui_var = tk.BooleanVar(value=True)
         self.launch_board_gui_var = tk.BooleanVar(value=True)
+        self.eyes_pupil_var = tk.BooleanVar(value=False)
 
         # Flash section
         flash_label = tk.Label(card, text="Flash Firmware", font=("Helvetica", 11, "bold"),
@@ -338,6 +339,16 @@ class Launchpad(tk.Tk):
             device_name = "Robot" if self.mode == "robo" else "Block"
             tk.Checkbutton(card, text=f"  Flash {device_name} firmware  ({self.second_port})",
                            variable=self.flash_second_var, font=("Helvetica", 10),
+                           fg=FG, bg=BG_CARD, selectcolor=BG_INPUT, activebackground=BG_CARD,
+                           activeforeground=FG, cursor="hand2").pack(anchor="w")
+
+        # Robot build options
+        if self.mode == "robo":
+            tk.Frame(card, bg=BG_INPUT, height=1).pack(fill="x", pady=8)
+            tk.Label(card, text="Robot Build Options", font=("Helvetica", 11, "bold"),
+                     fg=FG, bg=BG_CARD).pack(anchor="w", pady=(0, 4))
+            tk.Checkbutton(card, text="  Eyes with pupils  (unchecked = solid style)",
+                           variable=self.eyes_pupil_var, font=("Helvetica", 10),
                            fg=FG, bg=BG_CARD, selectcolor=BG_INPUT, activebackground=BG_CARD,
                            activeforeground=FG, cursor="hand2").pack(anchor="w")
 
@@ -463,6 +474,11 @@ class Launchpad(tk.Tk):
     def _run_flash(self, project, port, name):
         project_dir = os.path.join(PROJECT_ROOT, project)
         export_script = os.path.join(IDF_PATH, "export.sh")
+
+        # Set eye style config before building robot firmware
+        if project == "robo":
+            self._set_robo_eye_style(project_dir)
+
         cmd = f'source "{export_script}" && cd "{project_dir}" && idf.py -p {port} build flash'
 
         try:
@@ -492,6 +508,27 @@ class Launchpad(tk.Tk):
         except Exception as e:
             self.after(0, self._log, f"Error: {e}\n", "err")
             return False
+
+    def _set_robo_eye_style(self, project_dir):
+        """Write eye style Kconfig choice to sdkconfig before building."""
+        sdkconfig = os.path.join(project_dir, "sdkconfig")
+        lines = []
+        if os.path.exists(sdkconfig):
+            with open(sdkconfig, "r") as f:
+                lines = [l for l in f.readlines()
+                         if "CONFIG_ROBO_EYES_STYLE" not in l]
+
+        if self.eyes_pupil_var.get():
+            lines.append("CONFIG_ROBO_EYES_STYLE_PUPIL=y\n")
+            lines.append("# CONFIG_ROBO_EYES_STYLE_SOLID is not set\n")
+            self.after(0, self._log, "Eye style: with pupils\n", "info")
+        else:
+            lines.append("CONFIG_ROBO_EYES_STYLE_SOLID=y\n")
+            lines.append("# CONFIG_ROBO_EYES_STYLE_PUPIL is not set\n")
+            self.after(0, self._log, "Eye style: solid (no pupils)\n", "info")
+
+        with open(sdkconfig, "w") as f:
+            f.writelines(lines)
 
     def _check_board_i2c(self, port):
         """Read boot output from board to check if I2C mux initialized."""

@@ -128,6 +128,16 @@ Tkinter GUI for flashing and monitoring the robot firmware. Displays received bl
 python3 robo/tools/robo_sim.py
 ```
 
+### Motor Test (`tools/motor_test/`)
+
+Standalone ESP-IDF project for testing H-bridge motor wiring. Drives two DC motors forward for 3 seconds, then stops. Edit the `#define` pins at the top of `main.c` if your wiring differs from the default (L: GPIO 4/5/15, R: GPIO 6/7/16).
+
+```bash
+cd tools/motor_test
+idf.py set-target esp32s3
+idf.py -p /dev/ttyACM0 flash monitor
+```
+
 ## Project Structure
 
 ```
@@ -167,8 +177,10 @@ Bloco/
 │   └── tools/
 │       └── robo_sim.py         GUI for flashing and monitoring robot
 │
-└── tools/
-    └── launchpad.py            Development wizard (connect, flash, launch)
+├── tools/
+│   ├── launchpad.py            Development wizard (connect, flash, launch)
+│   └── motor_test/             Standalone motor H-bridge test (ESP-IDF)
+│       └── main/main.c         Drives 2 motors forward for 3s, then stops
 ```
 
 ## Block Types

@@ -322,6 +322,7 @@ class Launchpad(tk.Tk):
         self.launch_monitor_board_var = tk.BooleanVar(value=True)
         self.launch_monitor_second_var = tk.BooleanVar(value=True)
         self.launch_gui_var = tk.BooleanVar(value=True)
+        self.launch_board_gui_var = tk.BooleanVar(value=True)
 
         # Flash section
         flash_label = tk.Label(card, text="Flash Firmware", font=("Helvetica", 11, "bold"),
@@ -353,6 +354,11 @@ class Launchpad(tk.Tk):
 
         tk.Checkbutton(card, text=f"  Open Board monitor  ({self.board_port})",
                        variable=self.launch_monitor_board_var, font=("Helvetica", 10),
+                       fg=FG, bg=BG_CARD, selectcolor=BG_INPUT, activebackground=BG_CARD,
+                       activeforeground=FG, cursor="hand2").pack(anchor="w")
+
+        tk.Checkbutton(card, text="  Launch Board Monitor GUI",
+                       variable=self.launch_board_gui_var, font=("Helvetica", 10),
                        fg=FG, bg=BG_CARD, selectcolor=BG_INPUT, activebackground=BG_CARD,
                        activeforeground=FG, cursor="hand2").pack(anchor="w")
 
@@ -444,8 +450,11 @@ class Launchpad(tk.Tk):
             name = "Robot" if self.mode == "robo" else "Block"
             self.after(100, lambda: self._open_monitor(self.second_port, project, name))
 
+        if self.launch_board_gui_var.get():
+            self.after(200, self._open_board_gui)
+
         if self.second_port and self.launch_gui_var.get():
-            self.after(200, self._open_gui)
+            self.after(300, self._open_gui)
 
         self.after(0, self._log, ">>> All done!\n", "ok")
         self.after(0, lambda: self.status_var.set("Ready! All tools launched."))
@@ -535,6 +544,15 @@ class Launchpad(tk.Tk):
             except FileNotFoundError:
                 continue
         self._log(f"Could not open terminal for {name} monitor\n", "err")
+
+    def _open_board_gui(self):
+        tool = os.path.join(PROJECT_ROOT, "board", "tools", "board_monitor.py")
+        try:
+            subprocess.Popen([sys.executable, tool],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self._log("Launched Board Monitor GUI\n", "ok")
+        except Exception as e:
+            self._log(f"Failed to launch Board Monitor GUI: {e}\n", "err")
 
     def _open_gui(self):
         if self.mode == "robo":

@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1] - 2026-02-13
+
+### Added
+- **Motor test tool** (`tools/motor_test/`) — Standalone ESP-IDF project for testing H-bridge motor wiring. Drives two DC motors forward for 3 seconds, then stops. Configurable GPIOs and speed via `#define`.
+- **Board Monitor GUI in Launchpad** (`tools/launchpad.py`) — Step 4 now includes a "Launch Board Monitor GUI" checkbox that opens `board_monitor.py` alongside the other tools.
+
 ## [0.4.0] - 2026-02-12
 
 ### Added

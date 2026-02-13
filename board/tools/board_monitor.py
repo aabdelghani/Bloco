@@ -729,19 +729,24 @@ class SimulatorTab:
         ttk.Label(self.frame, textvariable=self.status_var, relief="sunken", anchor="w").pack(
             fill="x", side="bottom", padx=8, pady=(0, 8))
 
+    MAX_BLOCKS = 8  # matches ESPNOW_MAX_BLOCKS in firmware
+
     def _add_block(self, type_id):
         if type_id not in BLOCK_NAMES:
+            return
+        if len(self.program) >= self.MAX_BLOCKS:
+            self.status_var.set(f"Max {self.MAX_BLOCKS} blocks — remove some first")
             return
         name, _, color = BLOCK_NAMES[type_id]
         self.program.append((type_id, name, color))
         self._redraw_program()
-        self.status_var.set(f"Added {name} — {len(self.program)} block(s) in program")
+        self.status_var.set(f"Added {name} — {len(self.program)}/{self.MAX_BLOCKS} block(s)")
 
     def _remove_block(self, idx):
         if 0 <= idx < len(self.program):
             removed = self.program.pop(idx)
             self._redraw_program()
-            self.status_var.set(f"Removed {removed[1]} — {len(self.program)} block(s)")
+            self.status_var.set(f"Removed {removed[1]} — {len(self.program)}/{self.MAX_BLOCKS} block(s)")
 
     def _clear_program(self):
         self.program.clear()
@@ -904,6 +909,19 @@ def main():
         root.iconphoto(True, root._icon_img)
     root.geometry("700x580")
     root.resizable(True, True)
+    root.configure(bg="#1b2e1b")
+
+    # Green PCB theme — title bar
+    title_frame = tk.Frame(root, bg="#1b2e1b")
+    title_frame.pack(fill="x", padx=12, pady=(8, 0))
+    if os.path.exists(icon_path):
+        root._title_icon = tk.PhotoImage(file=icon_path).subsample(2)
+        tk.Label(title_frame, image=root._title_icon, bg="#1b2e1b").pack(side="left", padx=(0, 8))
+    tk.Label(title_frame, text="BOARD MONITOR", font=("Helvetica", 16, "bold"),
+             fg="#4CAF50", bg="#1b2e1b").pack(side="left")
+    tk.Label(title_frame, text="  I2C block inspector & simulator",
+             font=("Helvetica", 9), fg="#7a9a7a", bg="#1b2e1b").pack(side="left")
+    tk.Frame(root, bg="#4CAF50", height=2).pack(fill="x", padx=12, pady=(6, 0))
 
     notebook = ttk.Notebook(root)
     notebook.pack(fill="both", expand=True)

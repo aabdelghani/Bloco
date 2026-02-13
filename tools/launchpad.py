@@ -55,9 +55,14 @@ class Launchpad(tk.Tk):
         self.second_port = None
         self.mode = None  # "robo", "block", "board_only"
 
-        # Title bar
+        # Title bar with icon
         title_frame = tk.Frame(self, bg=BG)
         title_frame.pack(fill="x", padx=20, pady=(20, 0))
+
+        icon_path = os.path.join(SCRIPT_DIR, "icon.png")
+        if os.path.exists(icon_path):
+            self._title_icon = tk.PhotoImage(file=icon_path)
+            tk.Label(title_frame, image=self._title_icon, bg=BG).pack(side="left", padx=(0, 12))
 
         tk.Label(title_frame, text="BLOCO", font=("Helvetica", 28, "bold"),
                  fg=ACCENT, bg=BG).pack(side="left")

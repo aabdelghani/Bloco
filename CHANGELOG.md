@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 - **Eye style selector in Launchpad** (`tools/launchpad.py`) — "Robot Build Options" section in Step 4 with an "Eyes with pupils" checkbox. Writes the Kconfig choice to `robo/sdkconfig` before building, so users can switch eye styles without running `menuconfig`.
 
 ### Changed
+- **Themed title bars** — Each GUI tool now has a styled title bar with its icon and accent color matching the app icon: Launchpad (blue rocket), Board Monitor (green PCB), Robot Simulator (dark robot face), Block Agent (colorful blocks with rainbow bar).
+- **8-block limit in Simulator** — The Board Monitor Simulator tab now enforces the firmware's 8-block maximum (`ESPNOW_MAX_BLOCKS`). Status bar shows `N/8 block(s)`.
 - `tools/launchpad.py` — Window resized to 700x750 and made resizable to fit all Step 4 options.
 
 ### Known Issues

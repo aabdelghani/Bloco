@@ -717,6 +717,23 @@ def main():
         root.iconphoto(True, root._icon_img)
     root.geometry("750x600")
     root.resizable(False, False)
+    root.configure(bg="#2d1b4e")
+
+    # Colorful blocks theme — title bar
+    title_frame = tk.Frame(root, bg="#2d1b4e")
+    title_frame.pack(fill="x", padx=12, pady=(8, 0))
+    if os.path.exists(icon_path):
+        root._title_icon = tk.PhotoImage(file=icon_path).subsample(2)
+        tk.Label(title_frame, image=root._title_icon, bg="#2d1b4e").pack(side="left", padx=(0, 8))
+    tk.Label(title_frame, text="BLOCK AGENT", font=("Helvetica", 16, "bold"),
+             fg="#FF9800", bg="#2d1b4e").pack(side="left")
+    tk.Label(title_frame, text="  Program EEPROM blocks",
+             font=("Helvetica", 9), fg="#9a7abb", bg="#2d1b4e").pack(side="left")
+    # Rainbow accent bar
+    bar_frame = tk.Frame(root, bg="#2d1b4e", height=2)
+    bar_frame.pack(fill="x", padx=12, pady=(6, 0))
+    for color in ["#f44336", "#FF9800", "#4CAF50", "#2196F3", "#9C27B0"]:
+        tk.Frame(bar_frame, bg=color, height=2).pack(side="left", fill="x", expand=True)
 
     # Notebook with two tabs
     notebook = ttk.Notebook(root)

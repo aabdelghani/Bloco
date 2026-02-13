@@ -92,6 +92,8 @@ pip install pyserial
 
 **Auto-detection:** Each firmware writes its device role ("board" or "robo") to NVS on first boot and prints `DEVICE_ROLE=board` or `DEVICE_ROLE=robo` at startup. The Python tools automatically scan serial ports and connect to the correct device.
 
+Each tool has a themed title bar with its icon and matching accent color. `.desktop` files for GNOME taskbar integration are installed to `~/.local/share/applications/`.
+
 ### Launchpad (`tools/launchpad.py`)
 
 A 4-step development wizard that guides you through connecting devices, flashing firmware, and launching the appropriate tools. Supports Board+Robot, Board+Block Programmer, and Board-only workflows. Verifies I2C mux connectivity after flashing the board. In Robot mode, includes an "Eyes with pupils" checkbox to select the eye rendering style before building.
@@ -114,7 +116,7 @@ Tkinter GUI for inspecting I2C block slots on the board. Requires the board to b
 
 - **Flash** — Build and flash the board firmware
 - **I2C Blocks** — Scan slots, display block data as color-coded cards, send to robot
-- **Simulator** — Drag-and-drop block composer: click palette blocks to build a program, drag to reorder, right-click to remove, and send directly to the robot without physical EEPROM blocks
+- **Simulator** — Drag-and-drop block composer (max 8 blocks): click palette blocks to build a program, drag to reorder, right-click to remove, and send directly to the robot without physical EEPROM blocks
 
 ```bash
 python3 board/tools/board_monitor.py

@@ -479,6 +479,19 @@ def main():
         root.iconphoto(True, root._icon_img)
     root.geometry("800x650")
     root.resizable(True, True)
+    root.configure(bg="#1a1a1a")
+
+    # Dark robot theme — title bar
+    title_frame = tk.Frame(root, bg="#1a1a1a")
+    title_frame.pack(fill="x", padx=12, pady=(8, 0))
+    if os.path.exists(icon_path):
+        root._title_icon = tk.PhotoImage(file=icon_path).subsample(2)
+        tk.Label(title_frame, image=root._title_icon, bg="#1a1a1a").pack(side="left", padx=(0, 8))
+    tk.Label(title_frame, text="ROBOT SIMULATOR", font=("Helvetica", 16, "bold"),
+             fg="#e0e0e0", bg="#1a1a1a").pack(side="left")
+    tk.Label(title_frame, text="  Flash & monitor robot firmware",
+             font=("Helvetica", 9), fg="#777", bg="#1a1a1a").pack(side="left")
+    tk.Frame(root, bg="#555", height=2).pack(fill="x", padx=12, pady=(6, 0))
 
     notebook = ttk.Notebook(root)
     notebook.pack(fill="both", expand=True)

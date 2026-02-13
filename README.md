@@ -16,11 +16,11 @@ The project is split into three independent firmware projects and a shared libra
 - **MCU:** ESP32-S3 (all three boards)
 - **EEPROM:** AT24C256 (I2C address `0x50`, 32KB per chip)
 - **I2C Mux:** PCA9548A (address `0x70`, up to 8 channels)
-- **Status LED:** WS2812 RGB on GPIO 48 (block agent)
+- **Status LED:** WS2812 RGB on GPIO 48 (block agent, board, robot — used for pairing status)
 - **I2C Bus:** SDA=GPIO 8, SCL=GPIO 9, 100 kHz
 - **Robot Motors:** 2x DC motors (L/R differential drive), H-bridge on GPIOs 4/5/6/7 + PWM on 15/16
 - **Robot Display:** GC9A01 1.28" round LCD (240x240, SPI, RGB565) — animated Cozmo-style eyes
-- **Send Button:** GPIO 0 (BOOT) on the board — press to send program to robot
+- **Send/Pair Button:** GPIO 0 (BOOT) on board and robot — short press to send program, hold 4s to enter pairing mode
 
 ## Prerequisites
 
@@ -148,7 +148,7 @@ Bloco/
 │   ├── include/
 │   │   ├── block_types.h       Block type IDs, data structure, checksum
 │   │   ├── eeprom.h            EEPROM + I2C mux driver API
-│   │   └── espnow_protocol.h   ESP-NOW message format (board <-> robo)
+│   │   └── espnow_protocol.h   ESP-NOW message format (pairing, program transfer, ACK)
 │   └── src/
 │       └── eeprom.c            I2C driver (AT24C256 + PCA9548A mux)
 │
@@ -219,13 +219,32 @@ Offset  Size  Field       Description
 
 ## ESP-NOW Protocol
 
-The board sends programs to the robot over ESP-NOW (channel 1, broadcast mode). Messages:
+The board and robot communicate over ESP-NOW (channel 1). Devices must be paired before programs can be sent or received.
 
-1. **PROGRAM_START** (2 bytes): `{msg_type=0x01, block_count}`
-2. **BLOCK_DATA** (34 bytes each): `{msg_type=0x02, index, block_data[32]}`
-3. **PROGRAM_END** (1 byte): `{msg_type=0x03}`
+### Pairing
 
-The robot auto-executes the program immediately upon receiving PROGRAM_END.
+Hold the BOOT button (GPIO 0) for 4 seconds on both devices to enter pairing mode. The board broadcasts `PAIR_REQUEST` messages; the robot responds with a `PAIR_ACK` containing its MAC address. Once paired, all communication uses unicast. Pairing persists across reboots (stored in NVS).
+
+Entering pairing mode clears any existing pairing and sends an `UNPAIR` notification to the partner device, so both sides reset cleanly.
+
+**LED indicator:** Solid green = paired, solid red = not paired, blinking blue = pairing in progress.
+
+| Message | ID | Direction | Description |
+|---------|----|-----------|-------------|
+| `PAIR_REQUEST` | `0x10` | Board → broadcast | Board requests pairing (includes board MAC) |
+| `PAIR_ACK` | `0x11` | Robot → Board | Robot accepts pairing (includes robot MAC) |
+| `UNPAIR` | `0x12` | Either direction | Notifies partner to clear pairing |
+
+### Program Transfer
+
+Programs are only sent/received when both devices are paired.
+
+1. **PROGRAM_START** (`0x01`, 2 bytes): `{msg_type, block_count}`
+2. **BLOCK_DATA** (`0x02`, 34 bytes each): `{msg_type, index, block_data[32]}`
+3. **PROGRAM_END** (`0x03`, 1 byte): `{msg_type}`
+4. **PROGRAM_ACK** (`0x04`, 2 bytes): `{msg_type, block_count}` — robot confirms receipt
+
+The robot auto-executes the program upon receiving PROGRAM_END and sends a PROGRAM_ACK back to the board confirming how many blocks were received.
 
 ## Robot Display (Animated Eyes)
 

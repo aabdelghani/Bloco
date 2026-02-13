@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-02-13
+
+### Added
+- **Board–Robot pairing system** — Hold BOOT button for 4 seconds on both devices to enter pairing mode. The board broadcasts pair requests; the robot listens and responds with an ACK. Once paired, devices communicate exclusively via unicast ESP-NOW. Pairing persists across reboots via NVS.
+- **Unpair notification (`MSG_UNPAIR`)** — When either device enters pairing mode, it sends an `MSG_UNPAIR` message to its partner, causing the partner to also clear its pairing and revert to unpaired state. Prevents stale one-sided pairings.
+- **Program delivery acknowledgment (`MSG_PROGRAM_ACK`)** — After receiving a complete program, the robot sends an ACK back to the board confirming how many blocks were received. The board logs `"Robot confirmed: received N blocks successfully"`.
+- **Paired status LED indicator** — Both board and robot display pairing state on the onboard WS2812 LED (GPIO 48): solid green = paired, solid red = not paired, blinking blue = pairing in progress.
+- **LED strip driver on robot** — Added `led_strip` managed component and LED control functions (`led_init`, `led_set`, `led_off`) to the robot firmware, matching the board's existing LED support.
+- **Boot pairing banner** — Both devices log their paired status prominently on boot (e.g., `=== Paired to board: AA:BB:CC:DD:EE:FF ===` or `=== Not paired (accepting from any board) ===`).
+- **Pairing progress logging** — During pairing mode, both devices log elapsed time every 5 seconds (e.g., `"Pairing... 11 seconds elapsed"`).
+- **Polling-based long press detection** — The board uses GPIO polling in the main loop (in addition to the ISR) to reliably detect 4-second button holds, entering pairing mode immediately without waiting for button release.
+
+### Changed
+- **Long press threshold** — Increased from 3 seconds to 4 seconds on both board and robot to reduce accidental pairing activation.
+- **Paired-only communication** — Board refuses to send programs when not paired (`"Not paired — cannot send program"`). Robot ignores all program messages when not paired. Devices must be paired (green LED) to exchange programs.
+- **Pairing clears previous partner** — Entering pairing mode on either device erases the stored paired MAC from NVS and notifies the partner to unpair. Both devices go red until re-paired.
+- **ESP-NOW protocol** — Added 3 new message types: `MSG_PROGRAM_ACK` (0x04), `MSG_UNPAIR` (0x12), and corresponding structs in `espnow_protocol.h`. Board send path simplified to always use unicast (broadcast fallback removed).
+- `board/main/CMakeLists.txt` — Added `led_strip` managed component dependency.
+- `robo/main/CMakeLists.txt` — Added `led_strip` to REQUIRES.
+- `robo/main/idf_component.yml` — Added `espressif/led_strip` dependency.
+
+### Fixed
+- **Board BOOT button long press not detected** — Added polling-based detection as fallback for ISR edge detection, which could miss the release edge on some ESP32-S3 boards.
+
+### Known Issues (resolved from 0.4.1)
+- ~~**ESP-NOW transmission not verified**~~ — Resolved. Robot now sends `MSG_PROGRAM_ACK` after receiving a complete program; board confirms receipt in logs.
+
 ## [0.4.1] - 2026-02-13
 
 ### Added
@@ -16,7 +43,7 @@ All notable changes to this project will be documented in this file.
 - `tools/launchpad.py` — Window resized to 700x750 and made resizable to fit all Step 4 options.
 
 ### Known Issues
-- **ESP-NOW transmission not verified** — Programs are sent from board to robot via broadcast with no acknowledgment. Lost packets result in incomplete programs on the robot with no error reported. See [#2](https://github.com/aabdelghani/Bloco/issues/2).
+- **ESP-NOW transmission not verified** — Programs are sent from board to robot via broadcast with no acknowledgment. Lost packets result in incomplete programs on the robot with no error reported. See [#2](https://github.com/aabdelghani/Bloco/issues/2). *(Resolved in 0.5.0)*
 - **Simulator send requires I2C tab connection** — The Board Monitor Simulator tab shares the serial connection from the I2C Blocks tab. Users must connect via the I2C tab before sending from the Simulator. If the board is not flashed with the debug build (`CONFIG_BOARD_SERIAL_CMD`), the `SEND_BLOCKS` command is not available and sends will fail silently.
 
 ## [0.4.0] - 2026-02-12

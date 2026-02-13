@@ -16,6 +16,10 @@
 #define MSG_PROGRAM_START     0x01
 #define MSG_BLOCK_DATA        0x02
 #define MSG_PROGRAM_END       0x03
+#define MSG_PROGRAM_ACK       0x04
+#define MSG_PAIR_REQUEST      0x10
+#define MSG_PAIR_ACK          0x11
+#define MSG_UNPAIR            0x12
 
 // --- Message structs (all packed, fit within ESP-NOW 250-byte limit) ---
 
@@ -36,3 +40,26 @@ typedef struct {
 typedef struct {
     uint8_t msg_type;       // MSG_PROGRAM_END
 } __attribute__((packed)) espnow_program_end_t;
+
+// Robot → Board: "I received the complete program"
+typedef struct {
+    uint8_t msg_type;       // MSG_PROGRAM_ACK
+    uint8_t block_count;    // how many blocks were received
+} __attribute__((packed)) espnow_program_ack_t;
+
+// Board → Robot: "I want to pair with you"
+typedef struct {
+    uint8_t msg_type;       // MSG_PAIR_REQUEST
+    uint8_t mac[6];         // sender's MAC
+} __attribute__((packed)) espnow_pair_request_t;
+
+// Robot → Board: "Pairing accepted"
+typedef struct {
+    uint8_t msg_type;       // MSG_PAIR_ACK
+    uint8_t mac[6];         // sender's MAC
+} __attribute__((packed)) espnow_pair_ack_t;
+
+// Either direction: "I'm unpairing from you"
+typedef struct {
+    uint8_t msg_type;       // MSG_UNPAIR
+} __attribute__((packed)) espnow_unpair_t;

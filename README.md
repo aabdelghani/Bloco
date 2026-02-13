@@ -94,7 +94,7 @@ pip install pyserial
 
 ### Launchpad (`tools/launchpad.py`)
 
-A 4-step development wizard that guides you through connecting devices, flashing firmware, and launching the appropriate tools. Supports Board+Robot, Board+Block Programmer, and Board-only workflows. Verifies I2C mux connectivity after flashing the board.
+A 4-step development wizard that guides you through connecting devices, flashing firmware, and launching the appropriate tools. Supports Board+Robot, Board+Block Programmer, and Board-only workflows. Verifies I2C mux connectivity after flashing the board. In Robot mode, includes an "Eyes with pupils" checkbox to select the eye rendering style before building.
 
 ```bash
 python3 tools/launchpad.py

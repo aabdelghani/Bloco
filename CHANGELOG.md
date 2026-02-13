@@ -8,6 +8,14 @@ All notable changes to this project will be documented in this file.
 - **Motor test tool** (`tools/motor_test/`) — Standalone ESP-IDF project for testing H-bridge motor wiring. Drives two DC motors forward for 3 seconds, then stops. Configurable GPIOs and speed via `#define`.
 - **Board Monitor GUI in Launchpad** (`tools/launchpad.py`) — Step 4 now includes a "Launch Board Monitor GUI" checkbox that opens `board_monitor.py` alongside the other tools.
 - **5 new eye expressions** — SCARED (wide open, tiny pupils), CRYING (squinted with animated blue tear drops), CRYING_NO_TEARS (same shape, no tears), SWEATING (slight tilt with blue sweat drop), DIZZY (X-shaped eyes). New block types `0x8D`–`0x91` added across firmware, board monitor, and robot simulator.
+- **Eye style selector in Launchpad** (`tools/launchpad.py`) — "Robot Build Options" section in Step 4 with an "Eyes with pupils" checkbox. Writes the Kconfig choice to `robo/sdkconfig` before building, so users can switch eye styles without running `menuconfig`.
+
+### Changed
+- `tools/launchpad.py` — Window resized to 700x750 and made resizable to fit all Step 4 options.
+
+### Known Issues
+- **ESP-NOW transmission not verified** — Programs are sent from board to robot via broadcast with no acknowledgment. Lost packets result in incomplete programs on the robot with no error reported. See [#2](https://github.com/aabdelghani/Bloco/issues/2).
+- **Simulator send requires I2C tab connection** — The Board Monitor Simulator tab shares the serial connection from the I2C Blocks tab. Users must connect via the I2C tab before sending from the Simulator. If the board is not flashed with the debug build (`CONFIG_BOARD_SERIAL_CMD`), the `SEND_BLOCKS` command is not available and sends will fail silently.
 
 ## [0.4.0] - 2026-02-12
 

@@ -9,6 +9,11 @@ typedef enum {
     EYES_SLEEPING,
     EYES_EXCITED,
     EYES_FOCUSED,
+    EYES_SCARED,
+    EYES_CRYING,
+    EYES_CRYING_NO_TEARS,
+    EYES_SWEATING,
+    EYES_DIZZY,
     EYES_EXPRESSION_COUNT
 } eyes_expression_t;
 

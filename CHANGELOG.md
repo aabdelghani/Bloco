@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **Motor test tool** (`tools/motor_test/`) — Standalone ESP-IDF project for testing H-bridge motor wiring. Drives two DC motors forward for 3 seconds, then stops. Configurable GPIOs and speed via `#define`.
 - **Board Monitor GUI in Launchpad** (`tools/launchpad.py`) — Step 4 now includes a "Launch Board Monitor GUI" checkbox that opens `board_monitor.py` alongside the other tools.
+- **5 new eye expressions** — SCARED (wide open, tiny pupils), CRYING (squinted with animated blue tear drops), CRYING_NO_TEARS (same shape, no tears), SWEATING (slight tilt with blue sweat drop), DIZZY (X-shaped eyes). New block types `0x8D`–`0x91` added across firmware, board monitor, and robot simulator.
 
 ## [0.4.0] - 2026-02-12
 

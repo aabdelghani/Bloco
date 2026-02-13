@@ -197,7 +197,7 @@ Blocks are 32-byte data structures stored on EEPROM. Action blocks perform opera
 | Wait         | WAIT_FOR_CLAP | `0x50` |
 | Parameters   | 2, 3, 4, FOREVER, LIGHT, DARK, NEAR, FAR, UNTIL_LIGHT, UNTIL_DARK, UNTIL_NEAR, UNTIL_FAR | `0x60`–`0x6B` |
 | Sensors      | LIGHT_BULB, EAR, EYE, TELESCOPE, SOUND_MODULE | `0x70`–`0x74` |
-| Eyes         | EYES_NORMAL, EYES_HAPPY, EYES_SAD, EYES_ANGRY, EYES_SURPRISED, EYES_SLEEPING, EYES_EXCITED, EYES_FOCUSED | `0x80`–`0x87` |
+| Eyes         | EYES_NORMAL, EYES_HAPPY, EYES_SAD, EYES_ANGRY, EYES_SURPRISED, EYES_SLEEPING, EYES_EXCITED, EYES_FOCUSED, EYES_SCARED, EYES_CRYING, EYES_CRYING_NO_TEARS, EYES_SWEATING, EYES_DIZZY | `0x80`–`0x87`, `0x8D`–`0x91` |
 | Eyes Look    | EYES_LOOK_CENTER, EYES_LOOK_LEFT, EYES_LOOK_RIGHT, EYES_LOOK_UP, EYES_LOOK_DOWN | `0x88`–`0x8C` |
 
 ### EEPROM Data Layout (32 bytes)
@@ -253,8 +253,13 @@ The eyes change expression based on which block is executing:
 | SURPRISED  | Wide and round, small pupils | SPIN, WAIT_FOR_CLAP |
 | EXCITED    | Slightly larger | SHAKE |
 | FOCUSED    | Narrowed, large pupils | FORWARD, BACKWARD, BEGIN |
+| SCARED     | Wide open, tiny pupils, slight tilt | Eye block only |
+| CRYING     | Squinted with animated blue tear drops | Eye block only |
+| CRYING_NO_TEARS | Squinted crying shape, no tears | Eye block only |
+| SWEATING   | Slight tilt with blue sweat drop | Eye block only |
+| DIZZY      | X-shaped eyes (spiral/cross pattern) | Eye block only |
 
-Eye expressions and look directions can also be set directly using eye block types (`0x80`–`0x8C`) in a program.
+Eye expressions and look directions can also be set directly using eye block types (`0x80`–`0x91`) in a program.
 
 The eyes also look in the direction of movement (up for forward, down for backward, left/right for turns). Auto-blink runs every 2–6 seconds. After 1 minute of no program activity, the eyes transition to a SLEEPING expression and wake instantly when a new program is received (timeout configurable via `EYES_IDLE_TIMEOUT_MS` in `eyes.c`).
 

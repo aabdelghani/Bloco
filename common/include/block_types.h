@@ -76,6 +76,11 @@
 #define BLOCK_EYES_SLEEPING         0x85
 #define BLOCK_EYES_EXCITED          0x86
 #define BLOCK_EYES_FOCUSED          0x87
+#define BLOCK_EYES_SCARED           0x8D
+#define BLOCK_EYES_CRYING           0x8E
+#define BLOCK_EYES_CRYING_NO_TEARS  0x8F
+#define BLOCK_EYES_SWEATING         0x90
+#define BLOCK_EYES_DIZZY            0x91
 
 // Eyes (look direction)
 #define BLOCK_EYES_LOOK_CENTER      0x88
@@ -138,6 +143,9 @@ static inline bool block_type_valid(uint8_t type)
     case BLOCK_EYES_SAD: case BLOCK_EYES_ANGRY:
     case BLOCK_EYES_SURPRISED: case BLOCK_EYES_SLEEPING:
     case BLOCK_EYES_EXCITED: case BLOCK_EYES_FOCUSED:
+    case BLOCK_EYES_SCARED: case BLOCK_EYES_CRYING:
+    case BLOCK_EYES_CRYING_NO_TEARS: case BLOCK_EYES_SWEATING:
+    case BLOCK_EYES_DIZZY:
     // Eyes (look direction)
     case BLOCK_EYES_LOOK_CENTER: case BLOCK_EYES_LOOK_LEFT:
     case BLOCK_EYES_LOOK_RIGHT: case BLOCK_EYES_LOOK_UP:

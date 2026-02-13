@@ -239,6 +239,31 @@ void executor_run(const block_data_t *blocks, uint8_t count)
             eyes_set_expression(EYES_FOCUSED);
             vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
             break;
+        case BLOCK_EYES_SCARED:
+            ESP_LOGI(TAG, "  Eyes: scared");
+            eyes_set_expression(EYES_SCARED);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+        case BLOCK_EYES_CRYING:
+            ESP_LOGI(TAG, "  Eyes: crying");
+            eyes_set_expression(EYES_CRYING);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+        case BLOCK_EYES_CRYING_NO_TEARS:
+            ESP_LOGI(TAG, "  Eyes: crying (no tears)");
+            eyes_set_expression(EYES_CRYING_NO_TEARS);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+        case BLOCK_EYES_SWEATING:
+            ESP_LOGI(TAG, "  Eyes: sweating");
+            eyes_set_expression(EYES_SWEATING);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
+        case BLOCK_EYES_DIZZY:
+            ESP_LOGI(TAG, "  Eyes: dizzy");
+            eyes_set_expression(EYES_DIZZY);
+            vTaskDelay(pdMS_TO_TICKS(DEFAULT_MOVE_MS));
+            break;
 
         // Eye look direction
         case BLOCK_EYES_LOOK_CENTER:

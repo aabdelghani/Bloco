@@ -11,6 +11,13 @@ static const char *TAG = "eyes";
 // ---------------------------------------------------------------------------
 // Geometry parameters for one eye
 // ---------------------------------------------------------------------------
+// Overlay effect drawn on top of eye shapes
+typedef enum {
+    OVERLAY_NONE = 0,
+    OVERLAY_TEARS,
+    OVERLAY_SWEAT,
+} overlay_type_t;
+
 typedef struct {
     int16_t eye_w;       // half-width of eye rounded rect
     int16_t eye_h;       // half-height of eye rounded rect
@@ -26,6 +33,7 @@ typedef struct {
 typedef struct {
     eye_keyframe_t eye;
     int16_t lid_tilt_r;  // right eye tilt override (0 = mirror of left)
+    overlay_type_t overlay;  // tear drops, sweat, etc.
 } expression_keyframe_t;
 
 // ---------------------------------------------------------------------------
@@ -81,6 +89,37 @@ static const expression_keyframe_t s_keyframes[EYES_EXPRESSION_COUNT] = {
                  .lid_top = 4, .lid_bot = 4, .lid_tilt = 0,
                  .pupil_w = 13, .pupil_h = 14 },
     },
+    [EYES_SCARED] = {
+        .eye = { .eye_w = 32, .eye_h = 36, .eye_r = 16,
+                 .lid_top = 0, .lid_bot = 0, .lid_tilt = -4,
+                 .pupil_w = 6, .pupil_h = 6 },
+        .lid_tilt_r = 4,
+    },
+    [EYES_CRYING] = {
+        .eye = { .eye_w = 28, .eye_h = 30, .eye_r = 12,
+                 .lid_top = 10, .lid_bot = 14, .lid_tilt = -6,
+                 .pupil_w = 10, .pupil_h = 12 },
+        .lid_tilt_r = 6,
+        .overlay = OVERLAY_TEARS,
+    },
+    [EYES_CRYING_NO_TEARS] = {
+        .eye = { .eye_w = 28, .eye_h = 30, .eye_r = 12,
+                 .lid_top = 10, .lid_bot = 14, .lid_tilt = -6,
+                 .pupil_w = 10, .pupil_h = 12 },
+        .lid_tilt_r = 6,
+    },
+    [EYES_SWEATING] = {
+        .eye = { .eye_w = 30, .eye_h = 32, .eye_r = 14,
+                 .lid_top = 2, .lid_bot = 0, .lid_tilt = -3,
+                 .pupil_w = 8, .pupil_h = 9 },
+        .lid_tilt_r = 3,
+        .overlay = OVERLAY_SWEAT,
+    },
+    [EYES_DIZZY] = {
+        .eye = { .eye_w = 32, .eye_h = 32, .eye_r = 16,
+                 .lid_top = 0, .lid_bot = 0, .lid_tilt = 0,
+                 .pupil_w = 0, .pupil_h = 0 },
+    },
 #else
     // --- Solid: no pupils, emotion via shape only ---
     [EYES_NORMAL] = {
@@ -117,6 +156,32 @@ static const expression_keyframe_t s_keyframes[EYES_EXPRESSION_COUNT] = {
         .eye = { .eye_w = 28, .eye_h = 28, .eye_r = 10,
                  .lid_top = 8, .lid_bot = 8, .lid_tilt = 0 },
     },
+    [EYES_SCARED] = {
+        .eye = { .eye_w = 32, .eye_h = 36, .eye_r = 16,
+                 .lid_top = 0, .lid_bot = 0, .lid_tilt = -4 },
+        .lid_tilt_r = 4,
+    },
+    [EYES_CRYING] = {
+        .eye = { .eye_w = 28, .eye_h = 30, .eye_r = 12,
+                 .lid_top = 10, .lid_bot = 14, .lid_tilt = -6 },
+        .lid_tilt_r = 6,
+        .overlay = OVERLAY_TEARS,
+    },
+    [EYES_CRYING_NO_TEARS] = {
+        .eye = { .eye_w = 28, .eye_h = 30, .eye_r = 12,
+                 .lid_top = 10, .lid_bot = 14, .lid_tilt = -6 },
+        .lid_tilt_r = 6,
+    },
+    [EYES_SWEATING] = {
+        .eye = { .eye_w = 30, .eye_h = 32, .eye_r = 14,
+                 .lid_top = 2, .lid_bot = 0, .lid_tilt = -3 },
+        .lid_tilt_r = 3,
+        .overlay = OVERLAY_SWEAT,
+    },
+    [EYES_DIZZY] = {
+        .eye = { .eye_w = 32, .eye_h = 32, .eye_r = 16,
+                 .lid_top = 0, .lid_bot = 0, .lid_tilt = 0 },
+    },
 #endif
 };
 
@@ -152,6 +217,7 @@ typedef struct {
     int32_t pupil_w, pupil_h;
     int32_t pupil_dx, pupil_dy;
     int32_t blink_lid;  // extra top-lid closure for blink
+    overlay_type_t overlay;
 } anim_state_t;
 
 static anim_state_t s_current;   // current interpolated state (x256)
@@ -167,6 +233,19 @@ static blink_phase_t s_blink_phase = BLINK_IDLE;
 static int32_t s_blink_timer;
 static int32_t s_auto_blink_timer;
 static bool s_blink_requested;
+
+// Tear animation
+static int32_t s_tear_y_offset;  // animated tear drop y position (0-30)
+#define TEAR_SPEED  1   // pixels per frame
+#define TEAR_RANGE  30  // tear falls this many pixels then resets
+
+// Dizzy spiral animation
+static int32_t s_dizzy_angle;  // 0-359 degrees, advances each frame
+#define DIZZY_SPEED  12  // degrees per frame
+
+// Blue color for tears/sweat (RGB565, pre-byte-swapped for SPI)
+// Light blue: R=80, G=160, B=255
+#define COLOR_BLUE  0xFC54
 
 // Idle sleep timer
 #define EYES_IDLE_TIMEOUT_MS  (60 * 1000)   // go to sleep after this much idle
@@ -207,6 +286,7 @@ static void set_target_from_expression(void)
     s_target.pupil_dx = look->dx << 8;
     s_target.pupil_dy = look->dy << 8;
     s_target.blink_lid = 0;
+    s_target.overlay = kf->overlay;
 }
 
 static void snap_current_to_target(void)
@@ -318,6 +398,84 @@ static void render_band(int band_y)
             *p++ = color;
         }
     }
+
+    // --- Overlay effects ---
+    overlay_type_t ov = s_current.overlay;
+
+    if (ov == OVERLAY_TEARS) {
+        // Two tear drops below each eye, animated falling
+        int tear_centers[2] = { left_cx, right_cx };
+        int tear_base_y = cy + eh + 4;
+        int ty = tear_base_y + (int)s_tear_y_offset;
+
+        p = s_band_buf;
+        for (int row = 0; row < DISPLAY_BAND_HEIGHT; row++) {
+            int y = band_y + row;
+            for (int x = 0; x < DISPLAY_WIDTH; x++) {
+                for (int t = 0; t < 2; t++) {
+                    int tcx = tear_centers[t];
+                    // Tear drop: small ellipse (3x5 pixels)
+                    if (in_ellipse(x, y, tcx, ty, 3, 5)) {
+                        *p = COLOR_BLUE;
+                    }
+                    // Second tear slightly offset
+                    if (in_ellipse(x, y, tcx + 8, ty + 8, 2, 4)) {
+                        *p = COLOR_BLUE;
+                    }
+                }
+                p++;
+            }
+        }
+    }
+
+    if (ov == OVERLAY_SWEAT) {
+        // Single sweat drop on right side of face
+        int sx = right_cx + ew + 6;
+        int sy = cy - eh + 10;
+
+        p = s_band_buf;
+        for (int row = 0; row < DISPLAY_BAND_HEIGHT; row++) {
+            int y = band_y + row;
+            for (int x = 0; x < DISPLAY_WIDTH; x++) {
+                // Tear-drop shape: ellipse bottom + triangle top
+                if (in_ellipse(x, y, sx, sy + 4, 4, 5)) {
+                    *p = COLOR_BLUE;
+                } else if (x >= sx - 1 && x <= sx + 1 && y >= sy - 4 && y <= sy) {
+                    *p = COLOR_BLUE;
+                }
+                p++;
+            }
+        }
+    }
+
+    if (s_expr == EYES_DIZZY) {
+        // Draw X shapes over each eye instead of normal content
+        int centers[2] = { left_cx, right_cx };
+        int xsize = ew > 16 ? 16 : ew;
+
+        p = s_band_buf;
+        for (int row = 0; row < DISPLAY_BAND_HEIGHT; row++) {
+            int y = band_y + row;
+            for (int x = 0; x < DISPLAY_WIDTH; x++) {
+                for (int e = 0; e < 2; e++) {
+                    int ecx = centers[e];
+                    int dx = x - ecx;
+                    int dy = y - cy;
+                    // Two diagonal lines forming an X, thickness ~3px
+                    if (dx >= -xsize && dx <= xsize && dy >= -xsize && dy <= xsize) {
+                        int d1 = dx - dy;  // diagonal 1
+                        int d2 = dx + dy;  // diagonal 2
+                        if (d1 < 0) d1 = -d1;
+                        if (d2 < 0) d2 = -d2;
+                        if (d1 <= 2 || d2 <= 2) {
+                            *p = COLOR_WHITE;
+                        }
+                    }
+                }
+                p++;
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -352,6 +510,7 @@ static void advance_transition(int32_t dt_ms)
     s_current.pupil_dx = lerp(s_current.pupil_dx, s_target.pupil_dx, t256);
     s_current.pupil_dy = lerp(s_current.pupil_dy, s_target.pupil_dy, t256);
     s_current.blink_lid = lerp(s_current.blink_lid, s_target.blink_lid, t256);
+    s_current.overlay = s_target.overlay;
 }
 
 static void advance_blink(int32_t dt_ms)
@@ -413,6 +572,16 @@ static void eyes_tick(void)
     advance_idle(FRAME_MS);
     advance_transition(FRAME_MS);
     advance_blink(FRAME_MS);
+
+    // Advance tear drop animation
+    if (s_current.overlay == OVERLAY_TEARS) {
+        s_tear_y_offset += TEAR_SPEED;
+        if (s_tear_y_offset >= TEAR_RANGE) s_tear_y_offset = 0;
+    }
+    // Advance dizzy angle
+    if (s_expr == EYES_DIZZY) {
+        s_dizzy_angle = (s_dizzy_angle + DIZZY_SPEED) % 360;
+    }
 
     for (int band = 0; band < DISPLAY_NUM_BANDS; band++) {
         int y = band * DISPLAY_BAND_HEIGHT;

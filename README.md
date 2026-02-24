@@ -20,6 +20,7 @@ The project is split into three independent firmware projects and a shared libra
 - **I2C Bus:** SDA=GPIO 8, SCL=GPIO 9, 100 kHz
 - **Robot Motors:** 2x DC motors (L/R differential drive), H-bridge on GPIOs 4/5/6/7 + PWM on 15/16
 - **Robot Display:** GC9A01 1.28" round LCD (240x240, SPI, RGB565) — animated Cozmo-style eyes
+- **Robot Sound:** DFPlayer Mini (MP3-TF-16P) — UART MP3 player with micro SD card and speaker
 - **Send/Pair Button:** GPIO 0 (BOOT) on board and robot — short press to send program, hold 4s to enter pairing mode
 
 ## Prerequisites
@@ -130,6 +131,14 @@ Tkinter GUI for flashing and monitoring the robot firmware. Displays received bl
 python3 robo/tools/robo_sim.py
 ```
 
+### SD Card Preparation (`tools/prepare_sd.py`)
+
+Formats a micro SD card as FAT32 and copies the `sounds/` folder with the numbered folder/file naming required by the DFPlayer Mini module. Auto-detects removable devices and confirms before formatting.
+
+```bash
+sudo python3 tools/prepare_sd.py
+```
+
 ### Motor Test (`tools/motor_test/`)
 
 Standalone ESP-IDF project for testing H-bridge motor wiring. Drives two DC motors forward for 3 seconds, then stops. Edit the `#define` pins at the top of `main.c` if your wiring differs from the default (L: GPIO 4/5/15, R: GPIO 6/7/16).
@@ -175,12 +184,16 @@ Bloco/
 │   │   ├── executor.c/h        Block program interpreter
 │   │   ├── display.c/h         GC9A01 SPI LCD driver (init, flush, backlight)
 │   │   ├── eyes.c/h            Cozmo-style animated eye renderer (30fps)
+│   │   ├── dfplayer.c/h        DFPlayer Mini MP3 module UART driver
 │   │   └── Kconfig.projbuild   Robot configuration (eye style selection)
 │   └── tools/
 │       └── robo_sim.py         GUI for flashing and monitoring robot
 │
+├── sounds/                     MP3 sound files for DFPlayer Mini
+│
 ├── tools/
 │   ├── launchpad.py            Development wizard (connect, flash, launch)
+│   ├── prepare_sd.py           Format SD card and copy sounds for DFPlayer
 │   └── motor_test/             Standalone motor H-bridge test (ESP-IDF)
 │       └── main/main.c         Drives 2 motors forward for 3s, then stops
 ```
@@ -223,9 +236,11 @@ The board and robot communicate over ESP-NOW (channel 1). Devices must be paired
 
 ### Pairing
 
-Hold the BOOT button (GPIO 0) for 4 seconds on both devices to enter pairing mode. The board broadcasts `PAIR_REQUEST` messages; the robot responds with a `PAIR_ACK` containing its MAC address. Once paired, all communication uses unicast. Pairing persists across reboots (stored in NVS).
+Hold the BOOT button (GPIO 0) for 4 seconds on either device to enter pairing mode. The board broadcasts `PAIR_REQUEST` messages; the robot responds with a `PAIR_ACK` containing its MAC address. Once paired, all communication uses unicast. Pairing persists across reboots (stored in NVS).
 
-Entering pairing mode clears any existing pairing and sends an `UNPAIR` notification to the partner device, so both sides reset cleanly.
+Entering pairing mode clears any existing pairing and sends an `UNPAIR` notification to the partner device. When a device receives an `UNPAIR` notification, it automatically enters pairing mode — so unpairing one device triggers re-pairing on both sides.
+
+When not paired, the robot's eyes display a sleeping expression with periodic idle sounds.
 
 **LED indicator:** Solid green = paired, solid red = not paired, blinking blue = pairing in progress.
 
@@ -292,6 +307,41 @@ Two eye styles are available, selected at compile time via `idf.py menuconfig` (
 ### Rendering
 
 Uses band-buffer rendering (240x30 pixel strips, ~14KB) flushed 8 times per frame via SPI DMA at 40 MHz. All integer math — no floats. Expression transitions are smooth linear interpolation over ~250ms.
+
+## Robot Sound (DFPlayer Mini)
+
+The robot uses a DFPlayer Mini (MP3-TF-16P) module connected via UART for audio playback. Sounds are stored on a micro SD card formatted as FAT32.
+
+### DFPlayer Wiring
+
+| DFPlayer Pin | ESP32-S3 GPIO |
+|--------------|---------------|
+| VCC (pin 1)  | 5V (USB VBUS) |
+| RX (pin 2)   | GPIO 17 (via 1kΩ resistor) |
+| TX (pin 3)   | GPIO 18      |
+| GND (pin 7)  | GND          |
+| SPK_1 (pin 6)| Speaker (+)  |
+| SPK_2 (pin 8)| Speaker (-)  |
+
+Use a 3W 8Ω or 4Ω speaker on SPK_1/SPK_2.
+
+### SD Card Layout
+
+```
+01/  idle sounds     (001-004.mp3)
+02/  happy sounds    (001-002.mp3)
+03/  excited sounds  (001-003.mp3)
+04/  misc sounds     (001-006.mp3: scared, sad, connected, disconnect, end, beep)
+```
+
+Use `sudo python3 tools/prepare_sd.py` to format and copy sounds automatically.
+
+### Sound Behavior
+
+- **Expression-reactive:** Sounds play when the robot's eye expression changes (happy, excited, scared, sad)
+- **Idle sounds:** Random idle sound every 10 seconds when the robot is sleeping, accompanied by a blink
+- **BEEP block:** Plays the beep sound effect (folder 04, track 006)
+- **Connected sound:** Plays on successful pairing
 
 ## Command Protocol
 

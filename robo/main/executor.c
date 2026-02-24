@@ -1,6 +1,7 @@
 #include "executor.h"
 #include "motor.h"
 #include "eyes.h"
+#include "dfplayer.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -167,8 +168,9 @@ void executor_run(const block_data_t *blocks, uint8_t count)
             break;
 
         case BLOCK_BEEP:
-            ESP_LOGI(TAG, "  Beep! (placeholder — no speaker connected)");
+            ESP_LOGI(TAG, "  Beep!");
             eyes_set_expression(EYES_HAPPY);
+            dfplayer_play(DF_FOLDER_MISC, DF_MISC_BEEP);
             vTaskDelay(pdMS_TO_TICKS(BEEP_MS));
             break;
 

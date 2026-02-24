@@ -34,5 +34,8 @@ void eyes_set_expression(eyes_expression_t expr);
 // Set look direction (pupil movement — only effective with CONFIG_ROBO_EYES_STYLE_PUPIL)
 void eyes_set_look_direction(eyes_look_dir_t dir);
 
+// Get current expression (for polling from other tasks)
+eyes_expression_t eyes_get_expression(void);
+
 // Trigger a single blink
 void eyes_blink(void);

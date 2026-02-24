@@ -622,6 +622,11 @@ void eyes_init(void)
     ESP_LOGI(TAG, "Eyes animation started (30 fps, band-buffer rendering)");
 }
 
+eyes_expression_t eyes_get_expression(void)
+{
+    return s_expr;
+}
+
 void eyes_set_expression(eyes_expression_t expr)
 {
     if (expr >= EYES_EXPRESSION_COUNT) return;

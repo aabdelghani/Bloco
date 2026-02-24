@@ -14,6 +14,10 @@
 #include "block_types.h"
 #include "espnow_protocol.h"
 
+// --- Device info ---
+#define DEVICE_NAME       "Bloco Board"
+#define FIRMWARE_VERSION  "0.7.0"
+
 // --- Configuration ---
 #define NUM_EEPROMS      2            // EEPROM on channel 0 and channel 1
 #define EEPROM_SIZE      256          // bytes to read per EEPROM
@@ -118,7 +122,8 @@ static void espnow_recv_cb(const esp_now_recv_info_t *info, const uint8_t *data,
                 nvs_commit(nvs);
                 nvs_close(nvs);
             }
-            ESP_LOGI(TAG, "Unpaired by robot");
+            ESP_LOGI(TAG, "Unpaired by robot — entering pairing mode");
+            pairing_requested = true;
         }
     }
 
@@ -174,6 +179,7 @@ static void wifi_espnow_init(void)
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_ERROR_CHECK(esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE));
 
     // ESP-NOW init
     ESP_ERROR_CHECK(esp_now_init());
@@ -439,7 +445,7 @@ static void uart_cmd_task(void *arg)
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "=== Bloco Board Reader ===");
+    ESP_LOGI(TAG, "=== %s v%s ===", DEVICE_NAME, FIRMWARE_VERSION);
 
     // Store device role in NVS for identification
     {
@@ -472,13 +478,14 @@ void app_main(void)
     button_init();
 
     // --- Init shared EEPROM/I2C driver ---
+    bool eeprom_ok = false;
     esp_err_t ret = eeprom_init();
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "EEPROM init failed: %s", esp_err_to_name(ret));
-        return;
+        ESP_LOGW(TAG, "EEPROM init skipped: %s (no blocks connected — that's OK!)", esp_err_to_name(ret));
+    } else {
+        eeprom_ok = true;
+        ESP_LOGI(TAG, "I2C bus ready. Polling channels 0,%d every %d ms ...", NUM_EEPROMS - 1, POLL_INTERVAL_MS);
     }
-
-    ESP_LOGI(TAG, "I2C bus ready. Polling channels 0,%d every %d ms ...", NUM_EEPROMS - 1, POLL_INTERVAL_MS);
     ESP_LOGI(TAG, "Press BOOT button (GPIO %d) to send, hold 4s to pair", SEND_BUTTON_GPIO);
 
 #ifdef CONFIG_BOARD_SERIAL_CMD
@@ -632,7 +639,7 @@ void app_main(void)
 
         // Poll EEPROMs every POLL_INTERVAL_MS (using 100ms ticks)
         poll_counter++;
-        if (poll_counter >= (POLL_INTERVAL_MS / 100)) {
+        if (eeprom_ok && poll_counter >= (POLL_INTERVAL_MS / 100)) {
             poll_counter = 0;
 
             for (int ch = 0; ch < NUM_EEPROMS; ch++) {

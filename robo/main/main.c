@@ -17,6 +17,11 @@
 #include "display.h"
 #include "eyes.h"
 #include "executor.h"
+#include "dfplayer.h"
+#include "esp_random.h"
+
+#define DEVICE_NAME       "Bloco Robot"
+#define FIRMWARE_VERSION  "0.7.0"
 
 #define PAIR_BUTTON_GPIO  GPIO_NUM_0   // BOOT button
 #define LED_GPIO          GPIO_NUM_48  // Onboard WS2812 LED
@@ -140,7 +145,8 @@ static void espnow_recv_cb(const esp_now_recv_info_t *info, const uint8_t *data,
                 nvs_commit(nvs);
                 nvs_close(nvs);
             }
-            ESP_LOGI(TAG, "Unpaired by board");
+            ESP_LOGI(TAG, "Unpaired by board — entering pairing mode");
+            pairing_requested = true;
         }
         return;
     }
@@ -284,6 +290,7 @@ static void wifi_espnow_init(void)
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_ERROR_CHECK(esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE));
 
     // ESP-NOW init
     ESP_ERROR_CHECK(esp_now_init());
@@ -312,7 +319,7 @@ static void executor_task(void *arg)
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "=== Bloco Robot ===");
+    ESP_LOGI(TAG, "=== %s v%s ===", DEVICE_NAME, FIRMWARE_VERSION);
 
     // Store device role in NVS for identification
     {
@@ -339,6 +346,11 @@ void app_main(void)
     ESP_ERROR_CHECK(display_init());
     eyes_init();
 
+    // Init DFPlayer Mini (sound module)
+    if (dfplayer_init() != ESP_OK) {
+        ESP_LOGW(TAG, "DFPlayer init failed — continuing without sound");
+    }
+
     // Init WiFi + ESP-NOW receiver
     wifi_espnow_init();
 
@@ -349,6 +361,7 @@ void app_main(void)
                  paired_mac[3], paired_mac[4], paired_mac[5]);
     } else {
         ESP_LOGI(TAG, "=== Not paired (accepting from any board) ===");
+        eyes_set_expression(EYES_SLEEPING);
     }
 
     // Init BOOT button for pairing
@@ -374,6 +387,10 @@ void app_main(void)
 
     // Paired status LED state (-1 = unset, 0 = red/unpaired, 1 = green/paired)
     int led_paired_state = -1;
+
+    // Sound: track expression changes and idle timer
+    eyes_expression_t prev_sound_expr = EYES_NORMAL;
+    int32_t idle_sound_timer = 0;  // ms counter for idle sounds
 
     // --- Main loop (100ms tick for responsive pairing) ---
     while (1) {
@@ -449,7 +466,7 @@ void app_main(void)
                 ESP_LOGW(TAG, "Pairing timed out");
                 eyes_set_expression(EYES_SAD);
                 vTaskDelay(pdMS_TO_TICKS(2000));
-                eyes_set_expression(EYES_NORMAL);
+                eyes_set_expression(has_paired_mac ? EYES_NORMAL : EYES_SLEEPING);
 
             } else {
                 // Periodic log every 5 seconds
@@ -491,6 +508,50 @@ void app_main(void)
                 led_paired_state = want_paired;
                 if (has_paired_mac) led_set(0, 16, 0);
                 else led_set(16, 0, 0);
+            }
+        }
+
+        // --- Sound: react to expression changes and play idle sounds ---
+        if (!pairing_active) {
+            eyes_expression_t cur_expr = eyes_get_expression();
+
+            // On expression change, play matching sound
+            if (cur_expr != prev_sound_expr) {
+                switch (cur_expr) {
+                case EYES_HAPPY:
+                    dfplayer_play(DF_FOLDER_HAPPY,
+                                 1 + (esp_random() % DF_HAPPY_COUNT));
+                    break;
+                case EYES_EXCITED:
+                    dfplayer_play(DF_FOLDER_EXCITED,
+                                 1 + (esp_random() % DF_EXCITED_COUNT));
+                    break;
+                case EYES_SCARED:
+                    dfplayer_play(DF_FOLDER_MISC, DF_MISC_SCARED);
+                    break;
+                case EYES_SAD:
+                case EYES_CRYING:
+                case EYES_CRYING_NO_TEARS:
+                    dfplayer_play(DF_FOLDER_MISC, DF_MISC_SAD);
+                    break;
+                default:
+                    break;
+                }
+                idle_sound_timer = 0;  // reset idle timer on any change
+                prev_sound_expr = cur_expr;
+            }
+
+            // Idle sounds: play random idle sound every 10 seconds when sleeping
+            if (cur_expr == EYES_SLEEPING) {
+                idle_sound_timer += 100;
+                if (idle_sound_timer >= 10000) {
+                    eyes_blink();
+                    dfplayer_play(DF_FOLDER_IDLE,
+                                 1 + (esp_random() % DF_IDLE_COUNT));
+                    idle_sound_timer = 0;
+                }
+            } else {
+                idle_sound_timer = 0;
             }
         }
 

@@ -390,7 +390,8 @@ void app_main(void)
 
     // Sound: track expression changes and idle timer
     eyes_expression_t prev_sound_expr = EYES_NORMAL;
-    int32_t idle_sound_timer = 0;  // ms counter for idle sounds
+    int32_t idle_sound_timer = 0;  // ms counter between idle sounds
+    int32_t idle_total_ms = 0;     // total ms in sleeping state
 
     // --- Main loop (100ms tick for responsive pairing) ---
     while (1) {
@@ -541,10 +542,11 @@ void app_main(void)
                 prev_sound_expr = cur_expr;
             }
 
-            // Idle sounds: play random idle sound every 10 seconds when sleeping
+            // Idle sounds: play random idle sound every 20s, silence after 60s
             if (cur_expr == EYES_SLEEPING) {
                 idle_sound_timer += 100;
-                if (idle_sound_timer >= 10000) {
+                idle_total_ms += 100;
+                if (idle_total_ms < 60000 && idle_sound_timer >= 20000) {
                     eyes_blink();
                     dfplayer_play(DF_FOLDER_IDLE,
                                  1 + (esp_random() % DF_IDLE_COUNT));
@@ -552,6 +554,7 @@ void app_main(void)
                 }
             } else {
                 idle_sound_timer = 0;
+                idle_total_ms = 0;
             }
         }
 

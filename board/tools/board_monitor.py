@@ -3,6 +3,7 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -124,10 +125,22 @@ class SerialConnection:
     def __init__(self):
         self.ser = None
         self.lock = threading.Lock()
+        self.firmware_version = None
 
     def connect(self, port, baud=115200):
         self.ser = serial.Serial(port, baud, timeout=1)
         time.sleep(0.3)
+        # Read boot output briefly to detect firmware version
+        self.firmware_version = None
+        deadline = time.time() + 2
+        while time.time() < deadline:
+            raw = self.ser.readline().decode(errors="replace").strip()
+            if not raw:
+                continue
+            m = re.search(r"=== (.+?) v(\d+\.\d+\.\d+) ===", raw)
+            if m:
+                self.firmware_version = m.group(2)
+                break
         self.ser.reset_input_buffer()
 
     def disconnect(self):
@@ -178,11 +191,13 @@ class SerialConnection:
 class FlashTab:
     """Tab that builds and flashes the board firmware."""
 
-    def __init__(self, parent, notebook, on_done):
+    def __init__(self, parent, notebook, on_done, slots_tab=None):
         self.frame = ttk.Frame(parent)
         self.notebook = notebook
         self.on_done = on_done
+        self.slots_tab = slots_tab
         self.process = None
+        self._port_map = {}
 
         port_frame = ttk.Frame(self.frame)
         port_frame.pack(fill="x", padx=8, pady=(8, 0))
@@ -196,6 +211,7 @@ class FlashTab:
         ttk.Button(port_frame, text="Refresh", command=self._refresh_ports).pack(side="left", padx=2)
         self.flash_btn = ttk.Button(port_frame, text="Flash", command=self.start_flash)
         self.flash_btn.pack(side="left", padx=4)
+        ttk.Button(port_frame, text="Copy Cmd", command=self._copy_command).pack(side="left", padx=2)
 
         self.status_label = ttk.Label(port_frame, text="Select port and click Flash", foreground="blue")
         self.status_label.pack(side="right", padx=8)
@@ -216,13 +232,44 @@ class FlashTab:
         self.text.tag_configure("info", foreground="#569cd6")
 
     def _refresh_ports(self):
-        ports = SerialConnection.list_ports()
-        self.port_combo["values"] = ports
-        detected = detect_port("board")
-        if detected and not self.port_var.get():
-            self.port_var.set(detected)
-        elif ports and not self.port_var.get():
-            self.port_var.set(ports[0])
+        self._port_map = {}
+        for p in serial.tools.list_ports.comports():
+            short = os.path.basename(p.device)
+            if "ACM" in p.device or "USB" in p.device:
+                role = detect_device_role(p.device)
+                if role == "board":
+                    label = f"Bloco Board ({short})"
+                elif role == "robo":
+                    label = f"Bloco Robot ({short})"
+                else:
+                    label = short
+            else:
+                label = short
+            self._port_map[label] = p.device
+        labels = list(self._port_map.keys())
+        self.port_combo["values"] = labels
+        if not self.port_var.get():
+            for lbl in labels:
+                if lbl.startswith("Bloco Board"):
+                    self.port_var.set(lbl)
+                    break
+            else:
+                if labels:
+                    self.port_var.set(labels[0])
+
+    def _get_port(self):
+        label = self.port_var.get()
+        return self._port_map.get(label, label)
+
+    def _copy_command(self):
+        port = self._get_port()
+        if not port:
+            return
+        export_script = os.path.join(IDF_PATH, "export.sh")
+        cmd = f'source "{export_script}" && cd "{BOARD_PROJECT_DIR}" && idf.py -p {port} build flash'
+        self.frame.clipboard_clear()
+        self.frame.clipboard_append(cmd)
+        self.status_label.configure(text="Command copied!", foreground="green")
 
     def _append_text(self, text, tag=None):
         self.text.configure(state="normal")
@@ -234,10 +281,18 @@ class FlashTab:
         self.text.configure(state="disabled")
 
     def start_flash(self):
-        port = self.port_var.get()
+        port = self._get_port()
         if not port:
             messagebox.showerror("Error", "No serial port selected.")
             return
+
+        # Auto-disconnect I2C/Simulator serial if connected
+        if self.slots_tab and self.slots_tab.conn.connected:
+            self.slots_tab.auto_scan_active = False
+            self.slots_tab.conn.disconnect()
+            self.slots_tab.connect_btn.config(text="Connect")
+            self.slots_tab.conn_label.config(text="  Disconnected (flash)", foreground="orange")
+            self.slots_tab.status_var.set("Disconnected for flashing")
 
         self.flash_btn.configure(state="disabled")
         self.port_combo.configure(state="disabled")
@@ -276,7 +331,7 @@ class FlashTab:
         if returncode == 0:
             self._append_text("\n>>> Flash complete!\n", "success")
             self.status_label.configure(text="Flash OK", foreground="green")
-            self.on_done(self.port_var.get())
+            self.on_done(self._get_port())
         else:
             self._append_text(f"\n>>> Flash failed (exit code {returncode})\n", "error")
             self.status_label.configure(text="Flash FAILED", foreground="red")
@@ -289,6 +344,7 @@ class SlotsTab:
         self.frame = ttk.Frame(parent)
         self.conn = SerialConnection()
         self.channels = {}  # ch -> block data dict
+        self._port_map = {}
 
         # Connection bar
         conn_frame = ttk.Frame(self.frame)
@@ -358,18 +414,43 @@ class SlotsTab:
         self.frame.after(100, self._draw_slots)
 
     def auto_connect(self, port):
-        self.port_var.set(port)
+        for lbl, dev in self._port_map.items():
+            if dev == port:
+                self.port_var.set(lbl)
+                break
+        else:
+            self.port_var.set(port)
         self.frame.after(1500, self._do_connect)
 
     def _refresh_ports(self):
-        ports = SerialConnection.list_ports()
-        self.port_combo["values"] = ports
-        if ports and not self.port_var.get():
-            detected = detect_port("board")
-            if detected:
-                self.port_var.set(detected)
+        self._port_map = {}
+        for p in serial.tools.list_ports.comports():
+            short = os.path.basename(p.device)
+            if "ACM" in p.device or "USB" in p.device:
+                role = detect_device_role(p.device)
+                if role == "board":
+                    label = f"Bloco Board ({short})"
+                elif role == "robo":
+                    label = f"Bloco Robot ({short})"
+                else:
+                    label = short
             else:
-                self.port_var.set(ports[0])
+                label = short
+            self._port_map[label] = p.device
+        labels = list(self._port_map.keys())
+        self.port_combo["values"] = labels
+        if not self.port_var.get():
+            for lbl in labels:
+                if lbl.startswith("Bloco Board"):
+                    self.port_var.set(lbl)
+                    break
+            else:
+                if labels:
+                    self.port_var.set(labels[0])
+
+    def _get_port(self):
+        label = self.port_var.get()
+        return self._port_map.get(label, label)
 
     def _toggle_connect(self):
         if self.conn.connected:
@@ -382,7 +463,7 @@ class SlotsTab:
             self._do_connect()
 
     def _do_connect(self):
-        port = self.port_var.get()
+        port = self._get_port()
         if not port:
             messagebox.showerror("Error", "No port selected.")
             return
@@ -400,7 +481,8 @@ class SlotsTab:
                 self.status_var.set(f"Connection failed: {result}")
                 return
             self.connect_btn.config(text="Disconnect")
-            self.conn_label.config(text=f"  Connected: {result}", foreground="green")
+            ver = f" v{self.conn.firmware_version}" if self.conn.firmware_version else ""
+            self.conn_label.config(text=f"  Connected: {result}{ver}", foreground="green")
             self.status_var.set(f"Connected — scanning slots...")
             self.auto_scan_active = True
             self._scan_all()
@@ -939,7 +1021,7 @@ def main():
         slots_tab.auto_connect(port)
 
     # Flash tab
-    flash_tab = FlashTab(root, notebook, on_flash_done)
+    flash_tab = FlashTab(root, notebook, on_flash_done, slots_tab)
     notebook.insert(0, flash_tab.frame, text="  Flash  ")
     notebook.select(flash_tab.frame)
 

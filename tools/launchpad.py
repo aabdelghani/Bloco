@@ -497,17 +497,17 @@ class Launchpad(tk.Tk):
             proc.wait()
             ok = proc.returncode == 0
 
-            # For board: verify PCA9548A I2C mux is responding
+            # For board: verify I2C mux / boot status
             if ok and project == "board":
-                self.after(0, self._log, "\n>>> Verifying I2C mux (PCA9548A)...\n", "info")
+                self.after(0, self._log, "\n>>> Verifying board boot...\n", "info")
                 time.sleep(2)  # wait for ESP to boot
                 mux_ok = self._check_board_i2c(port)
                 if not mux_ok:
                     self.after(0, self._log,
-                               "WARNING: PCA9548A I2C mux not detected!\n"
+                               "WARNING: Board boot check inconclusive.\n"
                                "Check wiring: SDA=GPIO8, SCL=GPIO9, MUX addr=0x70\n", "err")
                 else:
-                    self.after(0, self._log, "PCA9548A I2C mux OK!\n", "ok")
+                    self.after(0, self._log, "Board boot OK!\n", "ok")
 
             return ok
         except Exception as e:
@@ -536,24 +536,27 @@ class Launchpad(tk.Tk):
             f.writelines(lines)
 
     def _check_board_i2c(self, port):
-        """Read boot output from board to check if I2C mux initialized."""
+        """Read boot output from board to check if I2C initialized."""
         import serial as ser
         try:
             s = ser.Serial(port, 115200, timeout=3)
             time.sleep(0.5)
             s.reset_input_buffer()
-            # Read lines for a few seconds looking for I2C status
+            # Read lines for a few seconds looking for I2C/boot status
             deadline = time.time() + 5
             while time.time() < deadline:
                 raw = s.readline().decode(errors="replace")
+                # I2C mux working fine
                 if "I2C bus ready" in raw or "Polling channels" in raw:
                     s.close()
                     return True
-                if "EEPROM init failed" in raw:
+                # No blocks connected — board is OK, just no EEPROM
+                if "EEPROM init skipped" in raw or "no blocks connected" in raw:
                     s.close()
-                    return False
+                    self.after(0, self._log,
+                               "Board OK (no EEPROM blocks connected — that's fine)\n", "info")
+                    return True
             s.close()
-            # If we didn't see either message, try a reset and read again
             return False
         except Exception as e:
             self.after(0, self._log, f"Serial check error: {e}\n", "err")

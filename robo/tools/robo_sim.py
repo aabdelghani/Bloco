@@ -103,11 +103,13 @@ def detect_port(role=None):
 class FlashTab:
     """Tab that builds and flashes the robo firmware."""
 
-    def __init__(self, parent, notebook, on_done):
+    def __init__(self, parent, notebook, on_done, monitor_tab=None):
         self.frame = ttk.Frame(parent)
         self.notebook = notebook
         self.on_done = on_done
+        self.monitor_tab = monitor_tab
         self.process = None
+        self._port_map = {}
 
         # Port selector
         port_frame = ttk.Frame(self.frame)
@@ -122,6 +124,7 @@ class FlashTab:
         ttk.Button(port_frame, text="Refresh", command=self._refresh_ports).pack(side="left", padx=2)
         self.flash_btn = ttk.Button(port_frame, text="Flash", command=self.start_flash)
         self.flash_btn.pack(side="left", padx=4)
+        ttk.Button(port_frame, text="Copy Cmd", command=self._copy_command).pack(side="left", padx=2)
 
         self.status_label = ttk.Label(port_frame, text="Select port and click Flash", foreground="blue")
         self.status_label.pack(side="right", padx=8)
@@ -143,14 +146,45 @@ class FlashTab:
         self.text.tag_configure("info", foreground="#569cd6")
 
     def _refresh_ports(self):
-        ports = [p.device for p in serial.tools.list_ports.comports()]
-        self.port_combo["values"] = ports
-        if self.port_var.get() not in ports:
-            detected = detect_port("robo")
-            if detected:
-                self.port_var.set(detected)
-            elif ports:
-                self.port_var.set(ports[0])
+        self._port_map = {}
+        for p in serial.tools.list_ports.comports():
+            short = os.path.basename(p.device)
+            if "ACM" in p.device or "USB" in p.device:
+                role = detect_device_role(p.device)
+                if role == "board":
+                    label = f"Bloco Board ({short})"
+                elif role == "robo":
+                    label = f"Bloco Robot ({short})"
+                else:
+                    label = short
+            else:
+                label = short
+            self._port_map[label] = p.device
+        labels = list(self._port_map.keys())
+        self.port_combo["values"] = labels
+        current = self.port_var.get()
+        if current not in labels:
+            for lbl in labels:
+                if lbl.startswith("Bloco Robot"):
+                    self.port_var.set(lbl)
+                    break
+            else:
+                if labels:
+                    self.port_var.set(labels[0])
+
+    def _get_port(self):
+        label = self.port_var.get()
+        return self._port_map.get(label, label)
+
+    def _copy_command(self):
+        port = self._get_port()
+        if not port:
+            return
+        export_script = os.path.join(IDF_PATH, "export.sh")
+        cmd = f'source "{export_script}" && cd "{ROBO_PROJECT_DIR}" && idf.py -p {port} build flash'
+        self.frame.clipboard_clear()
+        self.frame.clipboard_append(cmd)
+        self.status_label.configure(text="Command copied!", foreground="green")
 
     def _append_text(self, text, tag=None):
         self.text.configure(state="normal")
@@ -162,10 +196,14 @@ class FlashTab:
         self.text.configure(state="disabled")
 
     def start_flash(self):
-        port = self.port_var.get()
+        port = self._get_port()
         if not port:
             messagebox.showerror("Error", "No serial port selected.")
             return
+
+        # Auto-disconnect monitor serial if connected
+        if self.monitor_tab and self.monitor_tab.running:
+            self.monitor_tab._disconnect()
 
         self.flash_btn.configure(state="disabled")
         self.port_combo.configure(state="disabled")
@@ -206,7 +244,7 @@ class FlashTab:
         if returncode == 0:
             self._append_text("\n>>> Flash complete!\n", "success")
             self.status_label.configure(text="Flash OK", foreground="green")
-            self.on_done(self.port_var.get())
+            self.on_done(self._get_port())
         else:
             self._append_text(f"\n>>> Flash failed (exit code {returncode})\n", "error")
             self.status_label.configure(text="Flash FAILED", foreground="red")
@@ -274,23 +312,55 @@ class MonitorTab:
         self.log_text.tag_configure("warn", foreground="#ce9178")
         self.log_text.tag_configure("error", foreground="#f44747")
         self.log_text.tag_configure("info", foreground="#d4d4d4")
+        self.log_text.tag_configure("pair", foreground="#00b4d8")
+        self.log_text.tag_configure("sound", foreground="#bb86fc")
 
         # State
+        self._port_map = {}
         self.received_blocks = []
         self.current_exec_index = -1
+        self.firmware_version = None
+        self.paired_mac = None
+        self.pairing_active = False
 
     def _refresh_ports(self):
-        ports = [p.device for p in serial.tools.list_ports.comports()]
-        self.port_combo["values"] = ports
-        if self.port_var.get() not in ports:
-            detected = detect_port("robo")
-            if detected:
-                self.port_var.set(detected)
-            elif ports:
-                self.port_var.set(ports[0])
+        self._port_map = {}
+        for p in serial.tools.list_ports.comports():
+            short = os.path.basename(p.device)
+            if "ACM" in p.device or "USB" in p.device:
+                role = detect_device_role(p.device)
+                if role == "board":
+                    label = f"Bloco Board ({short})"
+                elif role == "robo":
+                    label = f"Bloco Robot ({short})"
+                else:
+                    label = short
+            else:
+                label = short
+            self._port_map[label] = p.device
+        labels = list(self._port_map.keys())
+        self.port_combo["values"] = labels
+        current = self.port_var.get()
+        if current not in labels:
+            for lbl in labels:
+                if lbl.startswith("Bloco Robot"):
+                    self.port_var.set(lbl)
+                    break
+            else:
+                if labels:
+                    self.port_var.set(labels[0])
+
+    def _get_port(self):
+        label = self.port_var.get()
+        return self._port_map.get(label, label)
 
     def auto_connect(self, port):
-        self.port_var.set(port)
+        for lbl, dev in self._port_map.items():
+            if dev == port:
+                self.port_var.set(lbl)
+                break
+        else:
+            self.port_var.set(port)
         self.frame.after(1500, self._do_connect)
 
     def _toggle_connect(self):
@@ -300,7 +370,7 @@ class MonitorTab:
             self._do_connect()
 
     def _do_connect(self):
-        port = self.port_var.get()
+        port = self._get_port()
         if not port:
             messagebox.showerror("Error", "No port selected.")
             return
@@ -314,6 +384,9 @@ class MonitorTab:
             return
 
         self.running = True
+        self.firmware_version = None
+        self.paired_mac = None
+        self.pairing_active = False
         self.connect_btn.configure(text="Disconnect")
         self.conn_label.configure(text=f"Connected: {port}", foreground="green")
         self.port_combo.configure(state="disabled")
@@ -326,9 +399,29 @@ class MonitorTab:
         if self.ser and self.ser.is_open:
             self.ser.close()
         self.ser = None
+        self.firmware_version = None
+        self.paired_mac = None
+        self.pairing_active = False
         self.connect_btn.configure(text="Connect")
         self.conn_label.configure(text="Disconnected", foreground="red")
         self.port_combo.configure(state="readonly")
+
+    def _update_conn_label(self):
+        if not self.running:
+            return
+        port = self.port_var.get()
+        parts = [f"Connected: {port}"]
+        if self.firmware_version:
+            parts.append(f"v{self.firmware_version}")
+        if self.pairing_active:
+            parts.append("| PAIRING...")
+            self.conn_label.configure(text="  ".join(parts), foreground="#00b4d8")
+        elif self.paired_mac:
+            parts.append(f"| Paired")
+            self.conn_label.configure(text="  ".join(parts), foreground="green")
+        else:
+            parts.append("| Unpaired")
+            self.conn_label.configure(text="  ".join(parts), foreground="orange")
 
     def _serial_reader(self):
         while self.running and self.ser and self.ser.is_open:
@@ -352,12 +445,52 @@ class MonitorTab:
              "Turn" in line or "Shake" in line or "Spin" in line or "Beep" in line or \
              "Eyes:" in line or "Program END" in line or "Program finished" in line:
             tag = "exec"
+        elif "PAIRING MODE" in line or "PAIRED" in line or "Unpaired" in line or \
+             "Pair request" in line or "Pair ACK" in line or "pairing" in line:
+            tag = "pair"
+        elif "Play folder" in line or "DFPlayer" in line or "Volume set" in line:
+            tag = "sound"
         elif "WARN" in line or "Incomplete" in line:
             tag = "warn"
         elif "ERROR" in line:
             tag = "error"
 
         self._append_log(line + "\n", tag)
+
+        # Parse firmware version: "=== Bloco Robot v0.7.0 ==="
+        m = re.search(r"=== (.+?) v(\d+\.\d+\.\d+) ===", line)
+        if m:
+            self.firmware_version = m.group(2)
+            self._update_conn_label()
+            return
+
+        # Parse pairing events
+        m = re.search(r"PAIRED with ([0-9A-Fa-f:]+)", line)
+        if m:
+            self.paired_mac = m.group(1)
+            self.pairing_active = False
+            self._update_conn_label()
+            return
+        if "PAIRING MODE" in line:
+            self.pairing_active = True
+            self.paired_mac = None
+            self._update_conn_label()
+            return
+        if "Unpaired by board" in line or "Not paired" in line:
+            self.paired_mac = None
+            self.pairing_active = False
+            self._update_conn_label()
+            return
+        if "Pairing timed out" in line:
+            self.pairing_active = False
+            self._update_conn_label()
+            return
+        # Parse paired MAC from boot log
+        m = re.search(r"Paired to board: ([0-9A-Fa-f:]+)", line)
+        if m:
+            self.paired_mac = m.group(1)
+            self._update_conn_label()
+            return
 
         # Parse ESP-NOW receive events
         # "Program start: expecting N blocks"
@@ -505,7 +638,7 @@ def main():
         monitor_tab.auto_connect(port)
 
     # Flash tab
-    flash_tab = FlashTab(root, notebook, on_flash_done)
+    flash_tab = FlashTab(root, notebook, on_flash_done, monitor_tab)
     notebook.insert(0, flash_tab.frame, text="  Flash  ")
     notebook.select(flash_tab.frame)
 

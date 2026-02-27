@@ -15,6 +15,23 @@ All notable changes to this project will be documented in this file.
 - `CMakeLists.txt` — Added `esp_driver_i2c` to REQUIRES.
 - `Kconfig.projbuild` — Added `ROBO_DISPLAY_TYPE` choice (GC9A01 or SSD1309).
 
+## [0.7.0] - 2026-02-24
+
+### Added
+- **DFPlayer Mini sound system** — UART-based driver for DFPlayer Mini MP3 module (GPIO 17 TX / GPIO 18 RX, 9600 baud). Plays expression-reactive sounds: happy, excited, scared, sad. Idle sounds every 10s when sleeping with eye blink. BEEP block triggers sound playback.
+- **SD card preparation script** (`tools/prepare_sd.py`) — Copies and renames sound files to the DFPlayer folder structure (numbered folders `01/`–`04/` with numbered tracks).
+- **Auto-pairing on unpair** — Receiving `MSG_UNPAIR` automatically triggers re-pairing on both board and robot, preventing stale one-sided pairings.
+- **WiFi channel fix** — Explicit `esp_wifi_set_channel(ESPNOW_CHANNEL)` call ensures ESP-NOW operates on the correct channel after WiFi init.
+- **Firmware version and device name constants** — `DEVICE_NAME` and `FIRMWARE_VERSION` defined in both board and robot `main.c`, logged on boot.
+- **`eyes_get_expression()` getter** — Allows main loop to detect expression changes for sound triggers.
+- **Robot sleeps when unpaired** — Eyes go to `EYES_SLEEPING` on boot if no paired MAC is stored.
+
+### Changed
+- **Tool improvements** — Flash tabs auto-disconnect active serial connections before flashing. "Copy Cmd" button copies flash command to clipboard. Port selectors show device names ("Bloco Board" / "Bloco Robot") instead of raw paths. Only ACM/USB ports are probed to avoid hanging on hardware UARTs.
+- **Idle sound timing** — Idle sounds play every 20 seconds (was 10s) and go completely silent after 60 seconds of idle.
+- **Launchpad boot check** — Accepts "EEPROM init skipped" and "no blocks connected" as valid boot output.
+- `robo/main/CMakeLists.txt` — Added `dfplayer.c` to SRCS, `esp_driver_uart` to PRIV_REQUIRES.
+
 ## [0.5.0] - 2026-02-13
 
 ### Added

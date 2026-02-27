@@ -21,7 +21,7 @@
 #include "esp_random.h"
 
 #define DEVICE_NAME       "Bloco Robot"
-#define FIRMWARE_VERSION  "0.7.0"
+#define FIRMWARE_VERSION  "0.8.0"
 
 #define PAIR_BUTTON_GPIO  GPIO_NUM_0   // BOOT button
 #define LED_GPIO          GPIO_NUM_48  // Onboard WS2812 LED

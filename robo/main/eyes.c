@@ -37,149 +37,161 @@ typedef struct {
 } expression_keyframe_t;
 
 // ---------------------------------------------------------------------------
+// Display-dependent scaling
+// ---------------------------------------------------------------------------
+#ifdef CONFIG_ROBO_DISPLAY_SSD1309
+  // Scale all geometry for 128x64 display (roughly half of 240x240)
+  #define EYE_SPACING  19
+  #define EYE_CY       (DISPLAY_HEIGHT / 2)
+  #define S(v)         ((v) / 2)
+#else
+  // Full-size geometry for 240x240 display
+  #define EYE_SPACING  38
+  #define EYE_CY       (DISPLAY_HEIGHT / 2)
+  #define S(v)         (v)
+#endif
+
+// ---------------------------------------------------------------------------
 // Expression keyframe table
 // ---------------------------------------------------------------------------
-// Eye center positions
-#define EYE_SPACING  38   // half-distance between eye centers
-#define EYE_CY       120  // vertical center on 240px display
 
 // clang-format off
 static const expression_keyframe_t s_keyframes[EYES_EXPRESSION_COUNT] = {
 #ifdef CONFIG_ROBO_EYES_STYLE_PUPIL
     // --- With pupils: classic cartoon eyes ---
     [EYES_NORMAL] = {
-        .eye = { .eye_w = 30, .eye_h = 34, .eye_r = 14,
+        .eye = { .eye_w = S(30), .eye_h = S(34), .eye_r = S(14),
                  .lid_top = 0, .lid_bot = 0, .lid_tilt = 0,
-                 .pupil_w = 10, .pupil_h = 12 },
+                 .pupil_w = S(10), .pupil_h = S(12) },
     },
     [EYES_HAPPY] = {
-        .eye = { .eye_w = 30, .eye_h = 34, .eye_r = 14,
-                 .lid_top = 0, .lid_bot = 18, .lid_tilt = 0,
-                 .pupil_w = 10, .pupil_h = 12 },
+        .eye = { .eye_w = S(30), .eye_h = S(34), .eye_r = S(14),
+                 .lid_top = 0, .lid_bot = S(18), .lid_tilt = 0,
+                 .pupil_w = S(10), .pupil_h = S(12) },
     },
     [EYES_SAD] = {
-        .eye = { .eye_w = 28, .eye_h = 30, .eye_r = 12,
-                 .lid_top = 8, .lid_bot = 0, .lid_tilt = -8,
-                 .pupil_w = 11, .pupil_h = 13 },
-        .lid_tilt_r = 8,
+        .eye = { .eye_w = S(28), .eye_h = S(30), .eye_r = S(12),
+                 .lid_top = S(8), .lid_bot = 0, .lid_tilt = S(-8),
+                 .pupil_w = S(11), .pupil_h = S(13) },
+        .lid_tilt_r = S(8),
     },
     [EYES_ANGRY] = {
-        .eye = { .eye_w = 34, .eye_h = 26, .eye_r = 6,
-                 .lid_top = 18, .lid_bot = 0, .lid_tilt = 14,
-                 .pupil_w = 7, .pupil_h = 8 },
-        .lid_tilt_r = -14,
+        .eye = { .eye_w = S(34), .eye_h = S(26), .eye_r = S(6),
+                 .lid_top = S(18), .lid_bot = 0, .lid_tilt = S(14),
+                 .pupil_w = S(7), .pupil_h = S(8) },
+        .lid_tilt_r = S(-14),
     },
     [EYES_SURPRISED] = {
-        .eye = { .eye_w = 34, .eye_h = 38, .eye_r = 18,
+        .eye = { .eye_w = S(34), .eye_h = S(38), .eye_r = S(18),
                  .lid_top = 0, .lid_bot = 0, .lid_tilt = 0,
-                 .pupil_w = 7, .pupil_h = 8 },
+                 .pupil_w = S(7), .pupil_h = S(8) },
     },
     [EYES_SLEEPING] = {
-        .eye = { .eye_w = 28, .eye_h = 34, .eye_r = 14,
-                 .lid_top = 30, .lid_bot = 0, .lid_tilt = 0,
-                 .pupil_w = 10, .pupil_h = 12 },
+        .eye = { .eye_w = S(28), .eye_h = S(34), .eye_r = S(14),
+                 .lid_top = S(30), .lid_bot = 0, .lid_tilt = 0,
+                 .pupil_w = S(10), .pupil_h = S(12) },
     },
     [EYES_EXCITED] = {
-        .eye = { .eye_w = 34, .eye_h = 36, .eye_r = 16,
+        .eye = { .eye_w = S(34), .eye_h = S(36), .eye_r = S(16),
                  .lid_top = 0, .lid_bot = 0, .lid_tilt = 0,
-                 .pupil_w = 11, .pupil_h = 13 },
+                 .pupil_w = S(11), .pupil_h = S(13) },
     },
     [EYES_FOCUSED] = {
-        .eye = { .eye_w = 28, .eye_h = 28, .eye_r = 12,
-                 .lid_top = 4, .lid_bot = 4, .lid_tilt = 0,
-                 .pupil_w = 13, .pupil_h = 14 },
+        .eye = { .eye_w = S(28), .eye_h = S(28), .eye_r = S(12),
+                 .lid_top = S(4), .lid_bot = S(4), .lid_tilt = 0,
+                 .pupil_w = S(13), .pupil_h = S(14) },
     },
     [EYES_SCARED] = {
-        .eye = { .eye_w = 32, .eye_h = 36, .eye_r = 16,
-                 .lid_top = 0, .lid_bot = 0, .lid_tilt = -4,
-                 .pupil_w = 6, .pupil_h = 6 },
-        .lid_tilt_r = 4,
+        .eye = { .eye_w = S(32), .eye_h = S(36), .eye_r = S(16),
+                 .lid_top = 0, .lid_bot = 0, .lid_tilt = S(-4),
+                 .pupil_w = S(6), .pupil_h = S(6) },
+        .lid_tilt_r = S(4),
     },
     [EYES_CRYING] = {
-        .eye = { .eye_w = 28, .eye_h = 30, .eye_r = 12,
-                 .lid_top = 10, .lid_bot = 14, .lid_tilt = -6,
-                 .pupil_w = 10, .pupil_h = 12 },
-        .lid_tilt_r = 6,
+        .eye = { .eye_w = S(28), .eye_h = S(30), .eye_r = S(12),
+                 .lid_top = S(10), .lid_bot = S(14), .lid_tilt = S(-6),
+                 .pupil_w = S(10), .pupil_h = S(12) },
+        .lid_tilt_r = S(6),
         .overlay = OVERLAY_TEARS,
     },
     [EYES_CRYING_NO_TEARS] = {
-        .eye = { .eye_w = 28, .eye_h = 30, .eye_r = 12,
-                 .lid_top = 10, .lid_bot = 14, .lid_tilt = -6,
-                 .pupil_w = 10, .pupil_h = 12 },
-        .lid_tilt_r = 6,
+        .eye = { .eye_w = S(28), .eye_h = S(30), .eye_r = S(12),
+                 .lid_top = S(10), .lid_bot = S(14), .lid_tilt = S(-6),
+                 .pupil_w = S(10), .pupil_h = S(12) },
+        .lid_tilt_r = S(6),
     },
     [EYES_SWEATING] = {
-        .eye = { .eye_w = 30, .eye_h = 32, .eye_r = 14,
-                 .lid_top = 2, .lid_bot = 0, .lid_tilt = -3,
-                 .pupil_w = 8, .pupil_h = 9 },
-        .lid_tilt_r = 3,
+        .eye = { .eye_w = S(30), .eye_h = S(32), .eye_r = S(14),
+                 .lid_top = S(2), .lid_bot = 0, .lid_tilt = S(-3),
+                 .pupil_w = S(8), .pupil_h = S(9) },
+        .lid_tilt_r = S(3),
         .overlay = OVERLAY_SWEAT,
     },
     [EYES_DIZZY] = {
-        .eye = { .eye_w = 32, .eye_h = 32, .eye_r = 16,
+        .eye = { .eye_w = S(32), .eye_h = S(32), .eye_r = S(16),
                  .lid_top = 0, .lid_bot = 0, .lid_tilt = 0,
                  .pupil_w = 0, .pupil_h = 0 },
     },
 #else
     // --- Solid: no pupils, emotion via shape only ---
     [EYES_NORMAL] = {
-        .eye = { .eye_w = 30, .eye_h = 34, .eye_r = 14,
+        .eye = { .eye_w = S(30), .eye_h = S(34), .eye_r = S(14),
                  .lid_top = 0, .lid_bot = 0, .lid_tilt = 0 },
     },
     [EYES_HAPPY] = {
-        .eye = { .eye_w = 32, .eye_h = 34, .eye_r = 16,
-                 .lid_top = 0, .lid_bot = 24, .lid_tilt = 0 },
+        .eye = { .eye_w = S(32), .eye_h = S(34), .eye_r = S(16),
+                 .lid_top = 0, .lid_bot = S(24), .lid_tilt = 0 },
     },
     [EYES_SAD] = {
-        .eye = { .eye_w = 26, .eye_h = 28, .eye_r = 12,
-                 .lid_top = 12, .lid_bot = 0, .lid_tilt = -10 },
-        .lid_tilt_r = 10,
+        .eye = { .eye_w = S(26), .eye_h = S(28), .eye_r = S(12),
+                 .lid_top = S(12), .lid_bot = 0, .lid_tilt = S(-10) },
+        .lid_tilt_r = S(10),
     },
     [EYES_ANGRY] = {
-        .eye = { .eye_w = 34, .eye_h = 24, .eye_r = 4,
-                 .lid_top = 20, .lid_bot = 4, .lid_tilt = 16 },
-        .lid_tilt_r = -16,
+        .eye = { .eye_w = S(34), .eye_h = S(24), .eye_r = S(4),
+                 .lid_top = S(20), .lid_bot = S(4), .lid_tilt = S(16) },
+        .lid_tilt_r = S(-16),
     },
     [EYES_SURPRISED] = {
-        .eye = { .eye_w = 36, .eye_h = 40, .eye_r = 20,
+        .eye = { .eye_w = S(36), .eye_h = S(40), .eye_r = S(20),
                  .lid_top = 0, .lid_bot = 0, .lid_tilt = 0 },
     },
     [EYES_SLEEPING] = {
-        .eye = { .eye_w = 28, .eye_h = 34, .eye_r = 14,
-                 .lid_top = 32, .lid_bot = 0, .lid_tilt = 0 },
+        .eye = { .eye_w = S(28), .eye_h = S(34), .eye_r = S(14),
+                 .lid_top = S(32), .lid_bot = 0, .lid_tilt = 0 },
     },
     [EYES_EXCITED] = {
-        .eye = { .eye_w = 36, .eye_h = 38, .eye_r = 18,
+        .eye = { .eye_w = S(36), .eye_h = S(38), .eye_r = S(18),
                  .lid_top = 0, .lid_bot = 0, .lid_tilt = 0 },
     },
     [EYES_FOCUSED] = {
-        .eye = { .eye_w = 28, .eye_h = 28, .eye_r = 10,
-                 .lid_top = 8, .lid_bot = 8, .lid_tilt = 0 },
+        .eye = { .eye_w = S(28), .eye_h = S(28), .eye_r = S(10),
+                 .lid_top = S(8), .lid_bot = S(8), .lid_tilt = 0 },
     },
     [EYES_SCARED] = {
-        .eye = { .eye_w = 32, .eye_h = 36, .eye_r = 16,
-                 .lid_top = 0, .lid_bot = 0, .lid_tilt = -4 },
-        .lid_tilt_r = 4,
+        .eye = { .eye_w = S(32), .eye_h = S(36), .eye_r = S(16),
+                 .lid_top = 0, .lid_bot = 0, .lid_tilt = S(-4) },
+        .lid_tilt_r = S(4),
     },
     [EYES_CRYING] = {
-        .eye = { .eye_w = 28, .eye_h = 30, .eye_r = 12,
-                 .lid_top = 10, .lid_bot = 14, .lid_tilt = -6 },
-        .lid_tilt_r = 6,
+        .eye = { .eye_w = S(28), .eye_h = S(30), .eye_r = S(12),
+                 .lid_top = S(10), .lid_bot = S(14), .lid_tilt = S(-6) },
+        .lid_tilt_r = S(6),
         .overlay = OVERLAY_TEARS,
     },
     [EYES_CRYING_NO_TEARS] = {
-        .eye = { .eye_w = 28, .eye_h = 30, .eye_r = 12,
-                 .lid_top = 10, .lid_bot = 14, .lid_tilt = -6 },
-        .lid_tilt_r = 6,
+        .eye = { .eye_w = S(28), .eye_h = S(30), .eye_r = S(12),
+                 .lid_top = S(10), .lid_bot = S(14), .lid_tilt = S(-6) },
+        .lid_tilt_r = S(6),
     },
     [EYES_SWEATING] = {
-        .eye = { .eye_w = 30, .eye_h = 32, .eye_r = 14,
-                 .lid_top = 2, .lid_bot = 0, .lid_tilt = -3 },
-        .lid_tilt_r = 3,
+        .eye = { .eye_w = S(30), .eye_h = S(32), .eye_r = S(14),
+                 .lid_top = S(2), .lid_bot = 0, .lid_tilt = S(-3) },
+        .lid_tilt_r = S(3),
         .overlay = OVERLAY_SWEAT,
     },
     [EYES_DIZZY] = {
-        .eye = { .eye_w = 32, .eye_h = 32, .eye_r = 16,
+        .eye = { .eye_w = S(32), .eye_h = S(32), .eye_r = S(16),
                  .lid_top = 0, .lid_bot = 0, .lid_tilt = 0 },
     },
 #endif
@@ -195,10 +207,10 @@ typedef struct {
 
 static const look_offset_t s_look_offsets[] = {
     [EYES_CENTER] = {  0,  0 },
-    [EYES_LEFT]   = { -10,  0 },
-    [EYES_RIGHT]  = {  10,  0 },
-    [EYES_UP]     = {  0, -8 },
-    [EYES_DOWN]   = {  0,  8 },
+    [EYES_LEFT]   = { S(-10),  0 },
+    [EYES_RIGHT]  = { S( 10),  0 },
+    [EYES_UP]     = {  0, S(-8) },
+    [EYES_DOWN]   = {  0, S( 8) },
 };
 
 // ---------------------------------------------------------------------------
@@ -235,25 +247,27 @@ static int32_t s_auto_blink_timer;
 static bool s_blink_requested;
 
 // Tear animation
-static int32_t s_tear_y_offset;  // animated tear drop y position (0-30)
+static int32_t s_tear_y_offset;  // animated tear drop y position
 #define TEAR_SPEED  1   // pixels per frame
-#define TEAR_RANGE  30  // tear falls this many pixels then resets
+#define TEAR_RANGE  S(30)  // tear falls this many pixels then resets
 
 // Dizzy spiral animation
 static int32_t s_dizzy_angle;  // 0-359 degrees, advances each frame
 #define DIZZY_SPEED  12  // degrees per frame
-
-// Blue color for tears/sweat (RGB565, pre-byte-swapped for SPI)
-// Light blue: R=80, G=160, B=255
-#define COLOR_BLUE  0xFC54
 
 // Idle sleep timer
 #define EYES_IDLE_TIMEOUT_MS  (60 * 1000)   // go to sleep after this much idle
 static int32_t s_idle_timer;
 static bool s_is_sleeping;
 
-// Band buffer (allocated once)
+// Band buffer
+#ifdef CONFIG_ROBO_DISPLAY_SSD1309
+static uint8_t s_band_buf[DISPLAY_WIDTH];  // one page = 128 bytes
+#else
+// Blue color for tears/sweat (RGB565)
+#define COLOR_BLUE  0xFC54
 static uint16_t s_band_buf[DISPLAY_BAND_PIXELS];
+#endif
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -354,6 +368,125 @@ static void render_band(int band_y)
     int right_cx = DISPLAY_WIDTH / 2 + EYE_SPACING;
     int cy = EYE_CY;
 
+#ifdef CONFIG_ROBO_DISPLAY_SSD1309
+    // --- SSD1309: render 8-pixel page into column bytes ---
+    memset(s_band_buf, 0, DISPLAY_WIDTH);
+
+    for (int row = 0; row < DISPLAY_BAND_HEIGHT; row++) {
+        int y = band_y + row;
+
+        for (int x = 0; x < DISPLAY_WIDTH; x++) {
+            bool pixel_on = false;
+
+            // Test both eyes
+            for (int side = 0; side < 2; side++) {
+                int ecx = (side == 0) ? left_cx : right_cx;
+                int tilt = (side == 0) ? tilt_l : tilt_r;
+
+                if (!in_rounded_rect(x, y, ecx, cy, ew, eh, er))
+                    continue;
+
+                // Eyelid clipping: top lid
+                int lid_top_y = cy - eh + total_lid_top;
+                if (ew > 0) {
+                    lid_top_y += tilt * (x - ecx) / ew;
+                }
+                if (y < lid_top_y) continue;
+
+                // Bottom lid
+                int lid_bot_y = cy + eh - lb;
+                if (y > lid_bot_y) continue;
+
+#ifdef CONFIG_ROBO_EYES_STYLE_PUPIL
+                {
+                    int pcx = ecx + pdx;
+                    int pcy = cy + pdy;
+                    // For pupil style: white eye with black pupil
+                    // On mono OLED: pixel ON = white eye area, pupil = pixel OFF
+                    if (pw > 0 && ph > 0 && in_ellipse(x, y, pcx, pcy, pw, ph)) {
+                        pixel_on = false;  // pupil is dark
+                    } else {
+                        pixel_on = true;   // eye white
+                    }
+                }
+#else
+                pixel_on = true;
+#endif
+            }
+
+            if (pixel_on) {
+                s_band_buf[x] |= (1 << row);
+            }
+        }
+    }
+
+    // --- Overlay effects (monochrome: all overlays render as white) ---
+    overlay_type_t ov = s_current.overlay;
+
+    if (ov == OVERLAY_TEARS) {
+        int tear_centers[2] = { left_cx, right_cx };
+        int tear_base_y = cy + eh + S(4);
+        int ty = tear_base_y + (int)s_tear_y_offset;
+
+        for (int row = 0; row < DISPLAY_BAND_HEIGHT; row++) {
+            int y = band_y + row;
+            for (int x = 0; x < DISPLAY_WIDTH; x++) {
+                for (int t = 0; t < 2; t++) {
+                    int tcx = tear_centers[t];
+                    if (in_ellipse(x, y, tcx, ty, S(3), S(5))) {
+                        s_band_buf[x] |= (1 << row);
+                    }
+                    if (in_ellipse(x, y, tcx + S(8), ty + S(8), S(2), S(4))) {
+                        s_band_buf[x] |= (1 << row);
+                    }
+                }
+            }
+        }
+    }
+
+    if (ov == OVERLAY_SWEAT) {
+        int sx = right_cx + ew + S(6);
+        int sy = cy - eh + S(10);
+
+        for (int row = 0; row < DISPLAY_BAND_HEIGHT; row++) {
+            int y = band_y + row;
+            for (int x = 0; x < DISPLAY_WIDTH; x++) {
+                if (in_ellipse(x, y, sx, sy + S(4), S(4), S(5))) {
+                    s_band_buf[x] |= (1 << row);
+                } else if (x >= sx - 1 && x <= sx + 1 && y >= sy - S(4) && y <= sy) {
+                    s_band_buf[x] |= (1 << row);
+                }
+            }
+        }
+    }
+
+    if (s_expr == EYES_DIZZY) {
+        int centers[2] = { left_cx, right_cx };
+        int xsize = ew > S(16) ? S(16) : ew;
+
+        for (int row = 0; row < DISPLAY_BAND_HEIGHT; row++) {
+            int y = band_y + row;
+            for (int x = 0; x < DISPLAY_WIDTH; x++) {
+                for (int e = 0; e < 2; e++) {
+                    int ecx = centers[e];
+                    int dx = x - ecx;
+                    int dy = y - cy;
+                    if (dx >= -xsize && dx <= xsize && dy >= -xsize && dy <= xsize) {
+                        int d1 = dx - dy;
+                        int d2 = dx + dy;
+                        if (d1 < 0) d1 = -d1;
+                        if (d2 < 0) d2 = -d2;
+                        if (d1 <= 1 || d2 <= 1) {
+                            s_band_buf[x] |= (1 << row);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+#else
+    // --- GC9A01: render RGB565 band buffer ---
     uint16_t *p = s_band_buf;
 
     for (int row = 0; row < DISPLAY_BAND_HEIGHT; row++) {
@@ -371,7 +504,6 @@ static void render_band(int band_y)
                     continue;
 
                 // Eyelid clipping: top lid
-                // lid_y = cy - eh + total_lid_top + tilt * (x - ecx) / ew
                 int lid_top_y = cy - eh + total_lid_top;
                 if (ew > 0) {
                     lid_top_y += tilt * (x - ecx) / ew;
@@ -383,7 +515,6 @@ static void render_band(int band_y)
                 if (y > lid_bot_y) continue;
 
 #ifdef CONFIG_ROBO_EYES_STYLE_PUPIL
-                // Check if inside pupil
                 {
                     int pcx = ecx + pdx;
                     int pcy = cy + pdy;
@@ -403,7 +534,6 @@ static void render_band(int band_y)
     overlay_type_t ov = s_current.overlay;
 
     if (ov == OVERLAY_TEARS) {
-        // Two tear drops below each eye, animated falling
         int tear_centers[2] = { left_cx, right_cx };
         int tear_base_y = cy + eh + 4;
         int ty = tear_base_y + (int)s_tear_y_offset;
@@ -414,11 +544,9 @@ static void render_band(int band_y)
             for (int x = 0; x < DISPLAY_WIDTH; x++) {
                 for (int t = 0; t < 2; t++) {
                     int tcx = tear_centers[t];
-                    // Tear drop: small ellipse (3x5 pixels)
                     if (in_ellipse(x, y, tcx, ty, 3, 5)) {
                         *p = COLOR_BLUE;
                     }
-                    // Second tear slightly offset
                     if (in_ellipse(x, y, tcx + 8, ty + 8, 2, 4)) {
                         *p = COLOR_BLUE;
                     }
@@ -429,7 +557,6 @@ static void render_band(int band_y)
     }
 
     if (ov == OVERLAY_SWEAT) {
-        // Single sweat drop on right side of face
         int sx = right_cx + ew + 6;
         int sy = cy - eh + 10;
 
@@ -437,7 +564,6 @@ static void render_band(int band_y)
         for (int row = 0; row < DISPLAY_BAND_HEIGHT; row++) {
             int y = band_y + row;
             for (int x = 0; x < DISPLAY_WIDTH; x++) {
-                // Tear-drop shape: ellipse bottom + triangle top
                 if (in_ellipse(x, y, sx, sy + 4, 4, 5)) {
                     *p = COLOR_BLUE;
                 } else if (x >= sx - 1 && x <= sx + 1 && y >= sy - 4 && y <= sy) {
@@ -449,7 +575,6 @@ static void render_band(int band_y)
     }
 
     if (s_expr == EYES_DIZZY) {
-        // Draw X shapes over each eye instead of normal content
         int centers[2] = { left_cx, right_cx };
         int xsize = ew > 16 ? 16 : ew;
 
@@ -461,10 +586,9 @@ static void render_band(int band_y)
                     int ecx = centers[e];
                     int dx = x - ecx;
                     int dy = y - cy;
-                    // Two diagonal lines forming an X, thickness ~3px
                     if (dx >= -xsize && dx <= xsize && dy >= -xsize && dy <= xsize) {
-                        int d1 = dx - dy;  // diagonal 1
-                        int d2 = dx + dy;  // diagonal 2
+                        int d1 = dx - dy;
+                        int d2 = dx + dy;
                         if (d1 < 0) d1 = -d1;
                         if (d2 < 0) d2 = -d2;
                         if (d1 <= 2 || d2 <= 2) {
@@ -476,6 +600,7 @@ static void render_band(int band_y)
             }
         }
     }
+#endif  // CONFIG_ROBO_DISPLAY_SSD1309
 }
 
 // ---------------------------------------------------------------------------
@@ -533,7 +658,7 @@ static void advance_blink(int32_t dt_ms)
     case BLINK_CLOSING:
         s_blink_timer -= dt_ms;
         // Full closure = 2 * eye_h (enough to cover entire eye)
-        s_current.blink_lid = (int32_t)(70 << 8) *
+        s_current.blink_lid = (int32_t)(S(70) << 8) *
             (BLINK_CLOSE_MS - s_blink_timer) / BLINK_CLOSE_MS;
         if (s_blink_timer <= 0) {
             s_blink_phase = BLINK_OPENING;
@@ -542,7 +667,7 @@ static void advance_blink(int32_t dt_ms)
         break;
     case BLINK_OPENING:
         s_blink_timer -= dt_ms;
-        s_current.blink_lid = (int32_t)(70 << 8) *
+        s_current.blink_lid = (int32_t)(S(70) << 8) *
             s_blink_timer / BLINK_OPEN_MS;
         if (s_blink_timer <= 0) {
             s_blink_phase = BLINK_IDLE;

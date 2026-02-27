@@ -3,7 +3,38 @@
 #include "esp_err.h"
 #include <stdint.h>
 
-// GC9A01 round LCD — 240x240 RGB565
+#ifdef CONFIG_ROBO_DISPLAY_SSD1309
+// ---- SSD1309 2.42" OLED — 128x64 monochrome, I2C ----
+#define DISPLAY_WIDTH   128
+#define DISPLAY_HEIGHT  64
+
+// I2C GPIO assignments (reuses SPI clock/data pins)
+#define DISPLAY_PIN_SCL  10
+#define DISPLAY_PIN_SDA  11
+
+// I2C address (typical for SSD1309 modules)
+#define DISPLAY_I2C_ADDR  0x3C
+
+// Band-buffer: one SSD1309 page = 8 pixel rows
+// Each byte = 1 column of 8 vertical pixels (bit 0 = top)
+#define DISPLAY_BAND_HEIGHT  8
+#define DISPLAY_NUM_BANDS    (DISPLAY_HEIGHT / DISPLAY_BAND_HEIGHT)
+
+// Initialize I2C bus and SSD1309 panel
+esp_err_t display_init(void);
+
+// Flush a page buffer (128 bytes) to the display
+// y_start must be page-aligned (0, 8, 16, ...)
+void display_flush(const uint8_t *buf, int y_start, int y_end);
+
+// Fill the entire screen (0x00 = black, 0xFF = white)
+void display_fill(uint8_t val);
+
+// No-op for OLED (self-emitting)
+static inline void display_set_backlight(int brightness) { (void)brightness; }
+
+#else
+// ---- GC9A01 round LCD — 240x240 RGB565, SPI ----
 #define DISPLAY_WIDTH   240
 #define DISPLAY_HEIGHT  240
 
@@ -37,3 +68,5 @@ void display_fill(uint16_t color);
 
 // Set backlight brightness (0-100)
 void display_set_backlight(int brightness);
+
+#endif

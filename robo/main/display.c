@@ -1,15 +1,89 @@
 #include "display.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
-#include "esp_lcd_gc9a01.h"
-#include "driver/spi_master.h"
-#include "driver/ledc.h"
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "esp_log.h"
 
 static const char *TAG = "display";
+
+static esp_lcd_panel_handle_t s_panel = NULL;
+
+#ifdef CONFIG_ROBO_DISPLAY_SSD1309
+// ===========================================================================
+// SSD1309 2.42" OLED — 128x64 monochrome, I2C
+// ===========================================================================
+#include "esp_lcd_panel_ssd1306.h"
+#include "driver/i2c_master.h"
+
+esp_err_t display_init(void)
+{
+    // I2C master bus
+    i2c_master_bus_config_t bus_cfg = {
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .i2c_port = I2C_NUM_0,
+        .scl_io_num = DISPLAY_PIN_SCL,
+        .sda_io_num = DISPLAY_PIN_SDA,
+        .glitch_ignore_cnt = 7,
+        .flags.enable_internal_pullup = true,
+    };
+    i2c_master_bus_handle_t bus = NULL;
+    ESP_ERROR_CHECK(i2c_new_master_bus(&bus_cfg, &bus));
+
+    // I2C panel IO
+    esp_lcd_panel_io_handle_t io = NULL;
+    esp_lcd_panel_io_i2c_config_t io_cfg = {
+        .dev_addr = DISPLAY_I2C_ADDR,
+        .scl_speed_hz = 400000,
+        .control_phase_bytes = 1,
+        .lcd_cmd_bits = 8,
+        .lcd_param_bits = 8,
+        .dc_bit_offset = 6,
+    };
+    ESP_ERROR_CHECK(esp_lcd_new_panel_io_i2c(bus, &io_cfg, &io));
+
+    // SSD1306 panel driver (SSD1309 is register-compatible)
+    esp_lcd_panel_dev_config_t panel_cfg = {
+        .reset_gpio_num = -1,   // no reset pin on 4-pin module
+        .bits_per_pixel = 1,
+    };
+    ESP_ERROR_CHECK(esp_lcd_new_panel_ssd1306(io, &panel_cfg, &s_panel));
+
+    ESP_ERROR_CHECK(esp_lcd_panel_reset(s_panel));
+    ESP_ERROR_CHECK(esp_lcd_panel_init(s_panel));
+    ESP_ERROR_CHECK(esp_lcd_panel_mirror(s_panel, true, true));
+    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(s_panel, true));
+
+    // Clear to black
+    display_fill(0x00);
+
+    ESP_LOGI(TAG, "SSD1309 display initialized (128x64, I2C 400 kHz)");
+    return ESP_OK;
+}
+
+void display_flush(const uint8_t *buf, int y_start, int y_end)
+{
+    esp_lcd_panel_draw_bitmap(s_panel, 0, y_start, DISPLAY_WIDTH, y_end, buf);
+}
+
+void display_fill(uint8_t val)
+{
+    static uint8_t fill_buf[DISPLAY_WIDTH];  // one page = 128 bytes
+    memset(fill_buf, val, sizeof(fill_buf));
+    for (int page = 0; page < DISPLAY_NUM_BANDS; page++) {
+        int y = page * DISPLAY_BAND_HEIGHT;
+        display_flush(fill_buf, y, y + DISPLAY_BAND_HEIGHT);
+    }
+}
+
+#else
+// ===========================================================================
+// GC9A01 round LCD — 240x240 RGB565, SPI
+// ===========================================================================
+#include "esp_lcd_gc9a01.h"
+#include "driver/spi_master.h"
+#include "driver/ledc.h"
 
 // SPI clock for GC9A01
 #define DISPLAY_SPI_FREQ_HZ  (40 * 1000 * 1000)
@@ -21,7 +95,6 @@ static const char *TAG = "display";
 #define BL_LEDC_FREQ_HZ  5000
 #define BL_LEDC_RES      LEDC_TIMER_8_BIT
 
-static esp_lcd_panel_handle_t s_panel = NULL;
 static SemaphoreHandle_t s_flush_sem = NULL;
 
 static bool on_color_trans_done(esp_lcd_panel_io_handle_t io,
@@ -147,3 +220,5 @@ void display_set_backlight(int brightness)
     ledc_set_duty(BL_LEDC_MODE, BL_LEDC_CHANNEL, duty);
     ledc_update_duty(BL_LEDC_MODE, BL_LEDC_CHANNEL);
 }
+
+#endif

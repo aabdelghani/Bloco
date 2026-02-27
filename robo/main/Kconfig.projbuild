@@ -1,5 +1,25 @@
 menu "Robot Configuration"
 
+    choice ROBO_DISPLAY_TYPE
+        prompt "Display type"
+        default ROBO_DISPLAY_GC9A01
+        help
+            Select the physical display connected to the robot.
+
+        config ROBO_DISPLAY_GC9A01
+            bool "GC9A01 1.28\" round LCD (240x240, SPI)"
+            help
+                Round 240x240 RGB565 color LCD connected via SPI.
+                Pins: SCLK=10, MOSI=11, CS=12, DC=13, RST=14, BL=21.
+
+        config ROBO_DISPLAY_SSD1309
+            bool "SSD1309 2.42\" OLED (128x64, I2C)"
+            help
+                Rectangular 128x64 monochrome OLED connected via I2C.
+                Pins: SCL=10, SDA=11 (reuses SPI clock/data pins).
+
+    endchoice
+
     choice ROBO_EYES_STYLE
         prompt "Eyes style"
         default ROBO_EYES_STYLE_SOLID

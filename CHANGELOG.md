@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2026-02-27
+
+### Added
+- **Dual display support** — Compile-time switch between GC9A01 1.28" round LCD (240x240, SPI) and SSD1309 2.42" OLED (128x64, I2C). Select via `idf.py menuconfig` → Robot Configuration → Display type.
+- **SSD1309 OLED driver** — I2C-based monochrome OLED support using the SSD1306 panel driver (SSD1309 is register-compatible). Uses GPIO 10 (SCL) and GPIO 11 (SDA), reusing the SPI clock/data pins.
+- **Scaled eye rendering** — All eye geometry automatically scales to half-size for the 128x64 display. Animations, blinking, eyelid tilts, and overlay effects (tears, sweat, dizzy) all work on both displays.
+
+### Changed
+- `display.h` / `display.c` — Refactored into conditional compilation blocks for each display type. SSD1309 path uses 8-pixel page-aligned band buffers (128 bytes each) vs 30-pixel RGB565 bands for GC9A01.
+- `eyes.c` — Keyframe values wrapped in `S()` scale macro. SSD1309 rendering outputs monochrome page-format data (1 bit per pixel, column-major bytes). Overlay effects render as white instead of blue on monochrome.
+- `CMakeLists.txt` — Added `esp_driver_i2c` to REQUIRES.
+- `Kconfig.projbuild` — Added `ROBO_DISPLAY_TYPE` choice (GC9A01 or SSD1309).
+
 ## [0.5.0] - 2026-02-13
 
 ### Added

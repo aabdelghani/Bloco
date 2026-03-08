@@ -1,0 +1,9 @@
+build/
+managed_components/
+dependencies.lock
+sdkconfig
+sdkconfig.old
+model/.venv/
+model/data/
+model/model.keras
+model/model.tflite

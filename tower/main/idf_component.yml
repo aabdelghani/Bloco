@@ -1,0 +1,5 @@
+dependencies:
+  espressif/esp32-camera:
+    version: "^2.0.0"
+  espressif/led_strip: '*'
+  espressif/esp-tflite-micro: "^1.3.5"

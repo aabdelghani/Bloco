@@ -1,0 +1,39 @@
+menu "Tower Configuration"
+
+    choice TOWER_CAMERA_BOARD
+        prompt "Camera board"
+        default TOWER_CAMERA_FREENOVE_S3
+        help
+            Select your ESP32-S3 camera board to set correct GPIO pins.
+
+        config TOWER_CAMERA_FREENOVE_S3
+            bool "Freenove ESP32-S3 WROOM CAM"
+            help
+                Freenove ESP32-S3 board with OV2640.
+
+        config TOWER_CAMERA_ESP32S3_EYE
+            bool "ESP32-S3-EYE (Espressif)"
+            help
+                Espressif official AI dev board with OV2640.
+
+        config TOWER_CAMERA_CUSTOM
+            bool "Custom pin assignment"
+            help
+                Define your own camera GPIO pins below.
+
+    endchoice
+
+    config TOWER_NUM_SLOTS
+        int "Number of block slots"
+        default 8
+        range 1 16
+        help
+            Number of block positions the camera reads from the board.
+
+    config TOWER_LIGHT_GPIO
+        int "LED lighting GPIO"
+        default 4
+        help
+            GPIO for tower illumination LEDs (turn on before capture).
+
+endmenu

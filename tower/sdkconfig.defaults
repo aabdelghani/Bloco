@@ -1,0 +1,13 @@
+CONFIG_IDF_TARGET="esp32s3"
+
+# Camera requires PSRAM
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+
+# Allocate camera buffers in PSRAM
+CONFIG_CAMERA_DMA_ALLOC_IN_PSRAM=y
+
+# Custom partition table (2MB app partition for TFLite model)
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
